@@ -1,0 +1,24 @@
+# ---- Node / Expo ----
+node_modules/
+.expo/
+.expo-shared/
+dist/
+web-build/
+*.tsbuildinfo
+
+# ---- Secretos ----
+.env
+.env.*
+!.env.example
+
+# ---- Builds nativos ----
+android/
+ios/
+*.apk
+*.ipa
+
+# ---- Varios ----
+*.log
+npm-debug.log*
+yarn-error.log*
+.DS_Store
