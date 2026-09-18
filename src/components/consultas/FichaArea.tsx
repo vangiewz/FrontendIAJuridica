@@ -1,47 +1,45 @@
 import React from 'react';
-import { TouchableOpacity, Text, StyleSheet } from 'react-native';
+import { TouchableOpacity, View, Text, StyleSheet } from 'react-native';
 import { colores, tipografia, espaciado, radios } from '../../theme';
 import { AreaJuridica } from '../../models/consultas';
-
-// El tema nombra las areas en camelCase y la API las devuelve en snake_case.
-// El mapeo vive solo aca para que ninguna vista tenga que conocer las dos formas.
-// responsabilidad_civil comparte el color de obligaciones: DESIGN.md define la terracota
-// como "Obligaciones y responsabilidad civil", asi que no se inventa un quinto color.
-const CLAVE_TEMA: Record<AreaJuridica, keyof typeof colores.areas> = {
-  contratos: 'contratos',
-  obligaciones: 'obligaciones',
-  derechos_reales: 'derechosReales',
-  sucesiones: 'sucesiones',
-  responsabilidad_civil: 'obligaciones',
-};
+import { colorDeArea } from '../../theme/areas';
 
 interface Props {
   area: AreaJuridica;
   titulo: string;
   activa: boolean;
-  onPress: () => void;
+  onPress?: () => void;
 }
 
 export function FichaArea({ area, titulo, activa, onPress }: Props) {
-  const colorArea = colores.areas[CLAVE_TEMA[area]];
+  const colorArea = colorDeArea(area) || colores.linea;
   
-  return (
-    <TouchableOpacity
-      style={[
-        styles.ficha,
-        activa ? { backgroundColor: colorArea } : styles.fichaInactiva
-      ]}
-      onPress={onPress}
-      activeOpacity={0.8}
-    >
+  const contenido = (
+    <View style={[
+      styles.ficha,
+      activa ? { backgroundColor: colorArea } : styles.fichaInactiva
+    ]}>
       <Text style={[
         styles.texto,
         activa ? styles.textoActivo : styles.textoInactivo
       ]}>
         {titulo}
       </Text>
-    </TouchableOpacity>
+    </View>
   );
+
+  if (onPress) {
+    return (
+      <TouchableOpacity
+        onPress={onPress}
+        activeOpacity={0.8}
+      >
+        {contenido}
+      </TouchableOpacity>
+    );
+  }
+
+  return contenido;
 }
 
 const styles = StyleSheet.create({
