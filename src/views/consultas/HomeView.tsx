@@ -1,19 +1,22 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TextInput, ScrollView } from 'react-native';
 import { Boton } from '../../components/shared/Boton';
-import { FichaArea } from '../../components/consultas/FichaArea';
-import { AreaJuridica } from '../../models/consultas';
+import { MapaAreas } from '../../components/consultas/MapaAreas';
+import { useConsulta } from '../../controllers/consultas/useConsulta';
 import { alturas, anchos, colores, espaciado, radios, tipografia } from '../../theme';
 import { useRouter } from 'expo-router';
 
 export function HomeView() {
   const [pregunta, setPregunta] = useState('');
-  const [areaActiva, setAreaActiva] = useState<AreaJuridica>('contratos');
+  const { crear, cargando, error } = useConsulta();
   const router = useRouter();
 
-  const handleConsultar = () => {
-    if (!pregunta) return;
-    router.push(`/(app)/consulta?q=${encodeURIComponent(pregunta)}&area=${areaActiva}`);
+  const handleConsultar = async () => {
+    if (!pregunta || cargando) return;
+    const id = await crear(pregunta);
+    if (id) {
+      router.push(`/(app)/consulta?id=${id}`);
+    }
   };
 
   return (
@@ -29,23 +32,21 @@ export function HomeView() {
           value={pregunta}
           onChangeText={setPregunta}
           textAlignVertical="top"
+          editable={!cargando}
         />
+
+        {error && <Text style={styles.error}>{error}</Text>}
 
         <View style={styles.botonContainer}>
           <Boton 
-            titulo="Consultar caso" 
+            titulo={cargando ? "Analizando..." : "Consultar caso"} 
             onPress={handleConsultar} 
           />
         </View>
 
         <View style={styles.areasContainer}>
-          <Text style={styles.areasTitulo}>Seleccioná el área aproximada:</Text>
-          <View style={styles.areasGrid}>
-            <FichaArea area="contratos" titulo="Contratos" activa={areaActiva === 'contratos'} onPress={() => setAreaActiva('contratos')} />
-            <FichaArea area="obligaciones" titulo="Obligaciones" activa={areaActiva === 'obligaciones'} onPress={() => setAreaActiva('obligaciones')} />
-            <FichaArea area="derechosReales" titulo="Derechos Reales" activa={areaActiva === 'derechosReales'} onPress={() => setAreaActiva('derechosReales')} />
-            <FichaArea area="sucesiones" titulo="Sucesiones" activa={areaActiva === 'sucesiones'} onPress={() => setAreaActiva('sucesiones')} />
-          </View>
+          <Text style={styles.areasTitulo}>Áreas cubiertas por el sistema:</Text>
+          <MapaAreas areaDetectada={null} />
         </View>
       </View>
     </ScrollView>
@@ -82,6 +83,11 @@ const styles = StyleSheet.create({
     height: alturas.campoConsulta,
     marginBottom: espaciado.l,
   },
+  error: {
+    color: colores.alerta,
+    marginBottom: espaciado.m,
+    fontFamily: tipografia.familias.cuerpo,
+  },
   botonContainer: {
     marginBottom: espaciado.xxl,
   },
@@ -93,9 +99,5 @@ const styles = StyleSheet.create({
     fontSize: tipografia.escala.nota,
     color: colores.tintaSuave,
     marginBottom: espaciado.m,
-  },
-  areasGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
   },
 });

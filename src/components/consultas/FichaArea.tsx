@@ -3,6 +3,18 @@ import { TouchableOpacity, Text, StyleSheet } from 'react-native';
 import { colores, tipografia, espaciado, radios } from '../../theme';
 import { AreaJuridica } from '../../models/consultas';
 
+// El tema nombra las areas en camelCase y la API las devuelve en snake_case.
+// El mapeo vive solo aca para que ninguna vista tenga que conocer las dos formas.
+// responsabilidad_civil comparte el color de obligaciones: DESIGN.md define la terracota
+// como "Obligaciones y responsabilidad civil", asi que no se inventa un quinto color.
+const CLAVE_TEMA: Record<AreaJuridica, keyof typeof colores.areas> = {
+  contratos: 'contratos',
+  obligaciones: 'obligaciones',
+  derechos_reales: 'derechosReales',
+  sucesiones: 'sucesiones',
+  responsabilidad_civil: 'obligaciones',
+};
+
 interface Props {
   area: AreaJuridica;
   titulo: string;
@@ -11,7 +23,7 @@ interface Props {
 }
 
 export function FichaArea({ area, titulo, activa, onPress }: Props) {
-  const colorArea = colores.areas[area];
+  const colorArea = colores.areas[CLAVE_TEMA[area]];
   
   return (
     <TouchableOpacity
