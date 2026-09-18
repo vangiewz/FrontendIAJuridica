@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { FuenteLegal } from '../../models/consultas';
 import { colores, radios, espaciado, tipografia, interlineado } from '../../theme';
 import { SelloVigencia } from './SelloVigencia';
@@ -7,12 +7,13 @@ import { SelloVigencia } from './SelloVigencia';
 interface Props {
   fuente: FuenteLegal;
   colorArea?: string;
+  alPulsar?: () => void;
 }
 
-export function FichaFuente({ fuente, colorArea }: Props) {
+export function FichaFuente({ fuente, colorArea, alPulsar }: Props) {
   const borderColor = colorArea || colores.linea;
 
-  return (
+  const contenido = (
     <View style={styles.contenedor}>
       <View style={[styles.regla, { backgroundColor: borderColor }]} />
       <View style={styles.contenido}>
@@ -29,6 +30,16 @@ export function FichaFuente({ fuente, colorArea }: Props) {
       </View>
     </View>
   );
+
+  if (alPulsar) {
+    return (
+      <TouchableOpacity activeOpacity={0.8} onPress={alPulsar}>
+        {contenido}
+      </TouchableOpacity>
+    );
+  }
+
+  return contenido;
 }
 
 const styles = StyleSheet.create({

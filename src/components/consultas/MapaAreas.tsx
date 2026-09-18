@@ -10,10 +10,10 @@ interface Props {
 export function MapaAreas({ areaDetectada }: Props) {
   return (
     <View style={styles.contenedor}>
-      <FichaArea area={"contratos" as any} titulo="Contratos" activa={areaDetectada === 'contratos'} onPress={() => {}} />
-      <FichaArea area={"obligaciones" as any} titulo="Obligaciones" activa={areaDetectada === 'obligaciones'} onPress={() => {}} />
-      <FichaArea area={"derechosReales" as any} titulo="Derechos Reales" activa={areaDetectada === 'derechos_reales'} onPress={() => {}} />
-      <FichaArea area={"sucesiones" as any} titulo="Sucesiones" activa={areaDetectada === 'sucesiones'} onPress={() => {}} />
+      <FichaArea area="contratos" titulo="Contratos" activa={areaDetectada === 'contratos'} />
+      <FichaArea area="obligaciones" titulo="Obligaciones" activa={areaDetectada === 'obligaciones'} />
+      <FichaArea area="derechos_reales" titulo="Derechos Reales" activa={areaDetectada === 'derechos_reales'} />
+      <FichaArea area="sucesiones" titulo="Sucesiones" activa={areaDetectada === 'sucesiones'} />
     </View>
   );
 }

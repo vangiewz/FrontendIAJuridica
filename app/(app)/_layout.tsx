@@ -24,6 +24,10 @@ export default function AppLayout() {
         options={{ href: null, title: 'Análisis' }} 
       />
       <Tabs.Screen 
+        name="articulo" 
+        options={{ href: null, title: 'Artículo' }} 
+      />
+      <Tabs.Screen 
         name="historial" 
         options={{ title: 'Mis Consultas', tabBarLabel: 'Historial' }} 
       />
