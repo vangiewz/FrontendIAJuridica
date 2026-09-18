@@ -1,27 +1,73 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import React, { useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { anchos, colores, espaciado, radios, tipografia } from '../../theme';
 import { Aviso } from '../../components/shared/Aviso';
+import { TerminosDetectados } from '../../components/consultas/TerminosDetectados';
+import { MapaAreas } from '../../components/consultas/MapaAreas';
+import { ListaFuentes } from '../../components/consultas/ListaFuentes';
+import { useConsulta } from '../../controllers/consultas/useConsulta';
 
 export function ConsultaView() {
-  const params = useLocalSearchParams();
-  
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const { consulta, cargando, error, cargar } = useConsulta();
+
+  useEffect(() => {
+    if (id) cargar(id);
+  }, [id]);
+
+  if (cargando) {
+    return (
+      <View style={styles.center}>
+        <ActivityIndicator size="large" color={colores.accion} />
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={styles.center}>
+        <Text style={styles.errorText}>{error}</Text>
+      </View>
+    );
+  }
+
+  if (!consulta) return null;
+
+  const sinArea = !consulta.area_juridica;
+  const sinFuentes = consulta.fuentes.length === 0;
+
   return (
     <ScrollView contentContainerStyle={styles.scroll}>
       <View style={styles.contenedor}>
-        <Text style={styles.titulo}>Análisis de la consulta</Text>
+        <Text style={styles.titulo}>Lo que dice el Código Civil sobre tu caso</Text>
         
         <View style={styles.preguntaCard}>
-          <Text style={styles.label}>Tu consulta:</Text>
-          <Text style={styles.pregunta}>{params.q}</Text>
-          <Text style={styles.areaBadge}>Área: {params.area}</Text>
+          <TerminosDetectados 
+            texto={consulta.texto} 
+            terminos={consulta.terminos_detectados} 
+            areaDetectada={consulta.area_juridica} 
+          />
         </View>
 
-        <Aviso
-          tipo="info"
-          mensaje="Todavía no podemos analizar tu consulta: la base del Código Civil aún no está cargada en el sistema."
-        />
+        <MapaAreas areaDetectada={consulta.area_juridica} />
+
+        {sinArea ? (
+          <Text style={styles.estadoVacio}>
+            No pudimos identificar de qué trata tu consulta. Contanos qué pasó con más detalle: qué hiciste, con quién y qué salió mal.
+          </Text>
+        ) : sinFuentes ? (
+          <Text style={styles.estadoVacio}>
+            Identificamos que tu caso es de {(consulta.area_juridica ?? '').replace('_', ' ')}, pero no encontramos artículos que se ajusten. Probá contando tu situación con más detalle.
+          </Text>
+        ) : (
+          <>
+            <Text style={styles.lineaHonesta}>
+              Todavía no redactamos una explicación de tu caso. Estos son los artículos que lo regulan.
+            </Text>
+            <ListaFuentes fuentes={consulta.fuentes} areaDetectada={consulta.area_juridica} />
+          </>
+        )}
 
         <View style={styles.legalNotice}>
           <Aviso 
@@ -41,10 +87,21 @@ const styles = StyleSheet.create({
   },
   contenedor: {
     padding: espaciado.xl,
-    maxWidth: anchos.lectura,
+    maxWidth: anchos.lectura || 800,
     width: '100%',
     alignSelf: 'center',
     flex: 1,
+  },
+  center: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: colores.papel,
+  },
+  errorText: {
+    color: colores.alerta,
+    fontFamily: tipografia.familias.cuerpo,
+    fontSize: tipografia.escala.cuerpo,
   },
   titulo: {
     fontFamily: tipografia.familias.titulo,
@@ -60,24 +117,21 @@ const styles = StyleSheet.create({
     borderRadius: radios.m,
     marginBottom: espaciado.xl,
   },
-  label: {
-    fontFamily: tipografia.familias.cuerpoFuerte,
-    fontSize: tipografia.escala.nota,
-    color: colores.tintaSuave,
-    marginBottom: espaciado.xs,
-  },
-  pregunta: {
+  estadoVacio: {
     fontFamily: tipografia.familias.cuerpo,
     fontSize: tipografia.escala.cuerpo,
     color: colores.tinta,
-    marginBottom: espaciado.m,
+    marginTop: espaciado.xl,
+    lineHeight: 24,
   },
-  areaBadge: {
-    fontFamily: tipografia.familias.cuerpoFuerte,
+  lineaHonesta: {
+    fontFamily: tipografia.familias.cuerpo,
     fontSize: tipografia.escala.nota,
-    color: colores.accion,
+    color: colores.tintaSuave,
+    marginTop: espaciado.xl,
   },
   legalNotice: {
     marginTop: 'auto',
+    paddingTop: espaciado.xxl,
   },
 });
