@@ -48,3 +48,8 @@ yarn-error.*
 .cline/
 AGENTS.md
 CLAUDE.md
+
+# Documentos de trabajo: no se publican
+DESIGN.md
+PRODUCT.md
+.impeccable/
