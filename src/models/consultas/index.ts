@@ -35,3 +35,8 @@ export interface ItemHistorial {
   cantidad_fuentes: number;
   creada_en: string;
 }
+
+export interface HistorialResponse {
+  total: number;
+  items: ItemHistorial[];
+}

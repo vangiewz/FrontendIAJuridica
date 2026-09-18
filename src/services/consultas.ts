@@ -1,5 +1,5 @@
 import { peticion } from './api';
-import { Consulta, ItemHistorial } from '../models/consultas';
+import { Consulta, ItemHistorial, HistorialResponse } from '../models/consultas';
 
 export async function crearConsulta(texto: string): Promise<string> {
   const data = await peticion<{ id: string }>('/api/v1/consultas', {
@@ -14,5 +14,9 @@ export async function obtenerConsulta(id: string): Promise<Consulta> {
 }
 
 export async function listarHistorial(): Promise<ItemHistorial[]> {
-  return peticion<ItemHistorial[]>('/api/v1/consultas/historial');
+  // El endpoint devuelve { total, items }, no un arreglo plano. Tipar el generico como
+  // ItemHistorial[] no falla en compilacion —`peticion` castea— pero revienta en pantalla
+  // con "historial.map is not a function".
+  const data = await peticion<HistorialResponse>('/api/v1/consultas/historial');
+  return data.items;
 }
