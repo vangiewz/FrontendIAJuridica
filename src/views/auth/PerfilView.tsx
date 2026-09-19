@@ -19,6 +19,9 @@ export function PerfilView() {
           
           <Text style={styles.label}>Correo electrónico</Text>
           <Text style={styles.valor}>{usuario?.email}</Text>
+
+          <Text style={styles.label}>Rol</Text>
+          <Text style={styles.valor}>{usuario?.rol}</Text>
         </View>
 
         <View style={styles.legalNotice}>
