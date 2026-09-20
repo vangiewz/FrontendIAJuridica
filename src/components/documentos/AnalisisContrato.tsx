@@ -90,18 +90,27 @@ export function AnalisisContrato({ analisis }: Props) {
         </Text>
       )}
 
-      {/* Solo si el backend algun dia los genera: hoy llegan en null y no se muestra nada. */}
       {analisis.resumen ? (
         <View style={styles.bloque}>
-          <Text style={styles.bloqueTitulo}>Resumen</Text>
+          <Text style={styles.bloqueTitulo}>Resumen del contrato</Text>
           <Text style={styles.textoLargo}>{analisis.resumen}</Text>
+          <Text style={styles.selloIA}>Redactado por la IA local a partir de las cláusulas</Text>
         </View>
       ) : null}
 
-      {analisis.observaciones ? (
+      {analisis.observaciones.length > 0 ? (
         <View style={styles.bloque}>
-          <Text style={styles.bloqueTitulo}>Observaciones</Text>
-          <Text style={styles.textoLargo}>{analisis.observaciones}</Text>
+          <Text style={styles.bloqueTitulo}>Observaciones de la IA</Text>
+          <Text style={styles.nota}>
+            No son riesgos del motor de reglas: son puntos a revisar que el modelo señaló,
+            cada uno anclado a una parte literal del contrato.
+          </Text>
+          {analisis.observaciones.map((obs, i) => (
+            <View key={i} style={styles.observacion}>
+              <Text style={styles.textoLargo}>{obs.observacion}</Text>
+              <Text style={styles.evidencia}>“{obs.evidencia}”</Text>
+            </View>
+          ))}
         </View>
       ) : null}
 
@@ -117,10 +126,10 @@ export function AnalisisContrato({ analisis }: Props) {
           }
         />
         <Dato etiqueta="Analizado el" valor={new Date(analisis.creado_en).toLocaleString()} />
-        {!analisis.observaciones ? (
+        {analisis.ia_error ? (
           <Text style={styles.nota}>
-            El sistema todavía no redacta observaciones sobre el contrato: lo que se muestra es
-            el análisis estructural que produce el motor de reglas.
+            No se pudo generar el resumen con la IA local: {analisis.ia_error} El análisis
+            estructural y los riesgos por reglas no dependen de la IA y siguen vigentes.
           </Text>
         ) : null}
       </View>
@@ -207,6 +216,27 @@ const styles = StyleSheet.create({
     fontSize: tipografia.escala.nota,
     color: colores.tinta,
     lineHeight: 22,
+  },
+  selloIA: {
+    fontFamily: tipografia.familias.cuerpo,
+    fontSize: tipografia.escala.nota,
+    color: colores.tintaSuave,
+    marginTop: espaciado.s,
+    fontStyle: 'italic',
+  },
+  observacion: {
+    borderLeftWidth: 3,
+    borderLeftColor: colores.destacado,
+    paddingLeft: espaciado.m,
+    marginTop: espaciado.m,
+  },
+  evidencia: {
+    fontFamily: tipografia.familias.cuerpo,
+    fontSize: tipografia.escala.nota,
+    color: colores.tintaSuave,
+    fontStyle: 'italic',
+    marginTop: espaciado.xs,
+    lineHeight: 20,
   },
   nota: {
     fontFamily: tipografia.familias.cuerpo,

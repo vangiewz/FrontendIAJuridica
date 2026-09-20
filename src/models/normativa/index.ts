@@ -24,3 +24,16 @@ export interface ArticuloDetalle {
   fuente_nombre: string;
   fuente_url: string;
 }
+
+/**
+ * HU-13: el texto original viene de la base, no del modelo, y llega aunque la
+ * explicacion falle. `disponible` en false trae el motivo en `motivo`.
+ */
+export interface ExplicacionArticulo {
+  disponible: boolean;
+  articulo: string;
+  texto_original: string;
+  explicacion: string | null;
+  ejemplo: string | null;
+  motivo: string | null;
+}

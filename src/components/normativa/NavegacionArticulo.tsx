@@ -21,7 +21,7 @@ export function NavegacionArticulo({ codigo, anterior, siguiente }: Props) {
             variante="secundario"
             titulo={`‹ Artículo ${anterior}`}
             onPress={() => {
-              router.replace(`/articulo?codigo=${encodeURIComponent(codigo)}&numero=${anterior}`);
+              router.replace(`/(app)/articulo?codigo=${encodeURIComponent(codigo)}&numero=${anterior}`);
             }}
           />
         )}
@@ -33,7 +33,7 @@ export function NavegacionArticulo({ codigo, anterior, siguiente }: Props) {
             variante="secundario"
             titulo={`Artículo ${siguiente} ›`}
             onPress={() => {
-              router.replace(`/articulo?codigo=${encodeURIComponent(codigo)}&numero=${siguiente}`);
+              router.replace(`/(app)/articulo?codigo=${encodeURIComponent(codigo)}&numero=${siguiente}`);
             }}
           />
         )}

@@ -32,7 +32,7 @@ export function SesionProvider({ children }: { children: ReactNode }) {
     if (!usuario && !inAuthGroup) {
       router.replace('/(auth)/login');
     } else if (usuario && inAuthGroup) {
-      router.replace('/(app)/');
+      router.replace('/(app)/(tabs)/');
     }
   }, [usuario, rootSegment, cargando]);
 

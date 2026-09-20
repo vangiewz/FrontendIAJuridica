@@ -5,12 +5,14 @@ import { EsqueletoLectura } from '../../components/normativa/EsqueletoLectura';
 import { MigaJuridica } from '../../components/normativa/MigaJuridica';
 import { ProcedenciaFuente } from '../../components/normativa/ProcedenciaFuente';
 import { NavegacionArticulo } from '../../components/normativa/NavegacionArticulo';
+import { ExplicacionSimple } from '../../components/normativa/ExplicacionSimple';
 import { Aviso } from '../../components/shared/Aviso';
 import { SelloVigencia } from '../../components/consultas/SelloVigencia';
 import { colores, tipografia, espaciado, interlineado, anchos } from '../../theme';
 import { colorDeArea } from '../../theme/areas';
 import { Boton } from '../../components/shared/Boton';
-import { router } from 'expo-router';
+import { useVolver } from '../../controllers/navegacion/useVolver';
+import { EnlaceVolver } from '../../components/shared/EnlaceVolver';
 
 interface Props {
   codigo: string;
@@ -18,6 +20,7 @@ interface Props {
 }
 
 export function ArticuloView({ codigo, numero }: Props) {
+  const volver = useVolver('/(app)/(tabs)/');
   const { articulo, cargando, error } = useArticulo(codigo, numero);
 
   if (cargando) {
@@ -32,7 +35,7 @@ export function ArticuloView({ codigo, numero }: Props) {
     return (
       <View style={styles.pantallaCentral}>
         <Text style={styles.textoError}>{error}</Text>
-        <Boton titulo="Volver" onPress={() => router.back()} />
+        <Boton titulo="Volver" onPress={volver} />
       </View>
     );
   }
@@ -40,6 +43,7 @@ export function ArticuloView({ codigo, numero }: Props) {
   return (
     <ScrollView style={styles.pantalla} contentContainerStyle={styles.scrollContent}>
       <View style={styles.columnaCentral}>
+        <EnlaceVolver respaldo="/(app)/(tabs)/" />
         <MigaJuridica ubicacion={articulo.ubicacion} />
         
         <Text style={styles.rotuloArticulo}>Artículo</Text>
@@ -54,6 +58,8 @@ export function ArticuloView({ codigo, numero }: Props) {
         ) : null}
 
         <Text style={styles.textoCompleto}>{articulo.texto}</Text>
+
+        <ExplicacionSimple codigo={articulo.codigo} numero={articulo.numero_articulo} />
 
         <ProcedenciaFuente
           fuenteNombre={articulo.fuente_nombre}

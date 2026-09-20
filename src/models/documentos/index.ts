@@ -133,10 +133,22 @@ export function esComparable(documento: ItemDocumento): boolean {
   return documento.estado === 'completado';
 }
 
+/** Norma real que la IA recibio para redactar; se puede abrir y leer completa. */
+export interface FuenteAnalisis {
+  id: string;
+  codigo: string;
+  numero_articulo: number;
+  articulo: string;
+  epigrafe: string | null;
+  texto: string;
+}
+
 export type SeveridadRiesgo = 'alta' | 'media' | 'baja';
 
 /** Un riesgo detectado por el motor de reglas (RiesgoResponse del backend). */
 export interface Riesgo {
+  /** Viene del backend: separa lo determinista de lo redactado por el modelo. */
+  origen: 'reglas';
   codigo_regla: string;
   titulo: string;
   severidad: SeveridadRiesgo;
@@ -148,11 +160,23 @@ export interface Riesgo {
 }
 
 /**
+ * Observacion redactada por la IA sobre una clausula concreta del contrato.
+ * `evidencia` es un fragmento literal del documento: el backend rechaza la
+ * observacion si no aparece tal cual en el texto analizado.
+ */
+export interface ObservacionIA {
+  origen: 'ia';
+  observacion: string;
+  evidencia: string;
+  norma_id: string | null;
+}
+
+/**
  * Respuesta de POST /api/v1/documentos/{id}/analisis.
  *
- * `resumen` y `observaciones` se declaran como texto opcional, no como null fijo:
- * hoy el backend los devuelve siempre en null (verificado contra la API) y la UI
- * no muestra nada, pero si algun dia los genera aparecen sin tocar el frontend.
+ * `riesgos` sale del motor determinista y `resumen`/`observaciones` de la IA local.
+ * Se muestran en bloques distintos a proposito: un texto generado no puede pasar
+ * por un hallazgo de las reglas.
  */
 export interface Analisis {
   id: string;
@@ -164,7 +188,9 @@ export interface Analisis {
   riesgos: Riesgo[];
   reglas_evaluadas: number;
   resumen: string | null;
-  observaciones: string | null;
+  observaciones: ObservacionIA[];
+  fuentes_ia: FuenteAnalisis[];
+  ia_error: string | null;
   creado_en: string;
 }
 

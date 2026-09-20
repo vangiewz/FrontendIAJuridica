@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
-import { router } from 'expo-router';
+import { useVolver } from '../../controllers/navegacion/useVolver';
+import { EnlaceVolver } from '../../components/shared/EnlaceVolver';
 import { Boton } from '../../components/shared/Boton';
 import { Aviso } from '../../components/shared/Aviso';
 import { ResultadoCarga } from '../../components/documentos/ResultadoCarga';
@@ -19,6 +20,7 @@ interface Props {
  * No se vuelve a subir el archivo ni se vuelve a ejecutar el analisis.
  */
 export function DocumentoGuardadoView({ documentoId }: Props) {
+  const volver = useVolver('/(app)/(tabs)/historial');
   const { documento, analisis, cargando, error } = useDocumentoGuardado(documentoId);
 
   if (cargando) {
@@ -33,7 +35,7 @@ export function DocumentoGuardadoView({ documentoId }: Props) {
     return (
       <View style={styles.centro}>
         <Text style={styles.error}>{error ?? 'No encontramos el documento.'}</Text>
-        <Boton titulo="Volver" onPress={() => router.back()} variante="secundario" />
+        <Boton titulo="Volver" onPress={volver} variante="secundario" />
       </View>
     );
   }
@@ -41,6 +43,7 @@ export function DocumentoGuardadoView({ documentoId }: Props) {
   return (
     <ScrollView contentContainerStyle={styles.scroll}>
       <View style={styles.contenedor}>
+        <EnlaceVolver respaldo="/(app)/(tabs)/historial" etiqueta="Volver al historial" />
         <Text style={styles.titulo}>Documento del historial</Text>
         <Text style={styles.subtitulo}>
           Subido el {new Date(documento.subido_en).toLocaleString()}

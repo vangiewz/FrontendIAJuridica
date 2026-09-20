@@ -6,20 +6,26 @@ import { Aviso } from '../../components/shared/Aviso';
 import { TerminosDetectados } from '../../components/consultas/TerminosDetectados';
 import { MapaAreas } from '../../components/consultas/MapaAreas';
 import { ListaFuentes } from '../../components/consultas/ListaFuentes';
+import { RespuestaIA } from '../../components/consultas/RespuestaIA';
 import { useConsulta } from '../../controllers/consultas/useConsulta';
 
 export function ConsultaView() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { consulta, cargando, error, cargar } = useConsulta();
+  const { consulta, cargando, etapa, error, cargar } = useConsulta();
 
   useEffect(() => {
     if (id) cargar(id);
   }, [id]);
 
   if (cargando) {
+    // El modelo local tarda: decir en que etapa va es mejor que una rueda muda.
     return (
       <View style={styles.center}>
         <ActivityIndicator size="large" color={colores.accion} />
+        <Text style={styles.etapa}>{etapa ?? 'Preparando consulta...'}</Text>
+        <Text style={styles.etapaNota}>
+          La respuesta se mostrará cuando termine de verificarse.
+        </Text>
       </View>
     );
   }
@@ -62,9 +68,15 @@ export function ConsultaView() {
           </Text>
         ) : (
           <>
-            <Text style={styles.lineaHonesta}>
-              Todavía no redactamos una explicación de tu caso. Estos son los artículos que lo regulan.
-            </Text>
+            {consulta.respuesta ? (
+              <RespuestaIA respuesta={consulta.respuesta} />
+            ) : (
+              <Text style={styles.lineaHonesta}>
+                {consulta.ia_error
+                  ? `${consulta.ia_error} Estos son los artículos que encontramos para tu caso.`
+                  : 'Todavía no redactamos una explicación de tu caso. Estos son los artículos que lo regulan.'}
+              </Text>
+            )}
             <ListaFuentes fuentes={consulta.fuentes} areaDetectada={consulta.area_juridica} />
           </>
         )}
@@ -123,6 +135,20 @@ const styles = StyleSheet.create({
     color: colores.tinta,
     marginTop: espaciado.xl,
     lineHeight: 24,
+  },
+  etapa: {
+    fontFamily: tipografia.familias.cuerpoFuerte,
+    fontSize: tipografia.escala.cuerpo,
+    color: colores.tinta,
+    marginTop: espaciado.l,
+  },
+  etapaNota: {
+    fontFamily: tipografia.familias.cuerpo,
+    fontSize: tipografia.escala.nota,
+    color: colores.tintaSuave,
+    marginTop: espaciado.s,
+    textAlign: 'center',
+    paddingHorizontal: espaciado.xl,
   },
   lineaHonesta: {
     fontFamily: tipografia.familias.cuerpo,

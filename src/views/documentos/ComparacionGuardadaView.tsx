@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
-import { router } from 'expo-router';
+import { useVolver } from '../../controllers/navegacion/useVolver';
+import { EnlaceVolver } from '../../components/shared/EnlaceVolver';
 import { Boton } from '../../components/shared/Boton';
 import { FichaDiferencia } from '../../components/documentos/FichaDiferencia';
 import { useComparacionGuardada } from '../../controllers/documentos/useComparacionGuardada';
@@ -12,6 +13,7 @@ interface Props {
 
 /** Una comparación del historial, releída de lo guardado. No se vuelve a comparar. */
 export function ComparacionGuardadaView({ comparacionId }: Props) {
+  const volver = useVolver('/(app)/(tabs)/historial');
   const { comparacion, cargando, error } = useComparacionGuardada(comparacionId);
 
   if (cargando) {
@@ -26,7 +28,7 @@ export function ComparacionGuardadaView({ comparacionId }: Props) {
     return (
       <View style={styles.centro}>
         <Text style={styles.error}>{error ?? 'No encontramos la comparación.'}</Text>
-        <Boton titulo="Volver" onPress={() => router.back()} variante="secundario" />
+        <Boton titulo="Volver" onPress={volver} variante="secundario" />
       </View>
     );
   }
@@ -34,6 +36,7 @@ export function ComparacionGuardadaView({ comparacionId }: Props) {
   return (
     <ScrollView contentContainerStyle={styles.scroll}>
       <View style={styles.contenedor}>
+        <EnlaceVolver respaldo="/(app)/(tabs)/historial" etiqueta="Volver al historial" />
         <View style={styles.card}>
           <Text style={styles.tituloSeccion}>COMPARACIÓN DE DOCUMENTOS</Text>
 

@@ -9,6 +9,23 @@ export async function crearConsulta(texto: string): Promise<string> {
   return data.id;
 }
 
+/**
+ * Arranca la consulta y devuelve el id de inmediato. El modelo local puede tardar
+ * decenas de segundos, asi que la pantalla sigue el avance con obtenerConsulta.
+ */
+export async function iniciarConsulta(
+  texto: string,
+  documentoId?: string | null,
+): Promise<string> {
+  const data = await peticion<{ id: string }>('/api/v1/consultas/iniciar', {
+    method: 'POST',
+    // El documento activo viaja como contexto. El backend comprueba que sea del
+    // usuario antes de usarlo, asi que mandarlo no es una via de confianza.
+    body: JSON.stringify({ texto, documento_id: documentoId ?? null }),
+  });
+  return data.id;
+}
+
 export async function obtenerConsulta(id: string): Promise<Consulta> {
   return peticion<Consulta>(`/api/v1/consultas/${id}`);
 }

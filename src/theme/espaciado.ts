@@ -21,6 +21,9 @@ export const anchos = {
   formulario: 400,   // login, registro, listas
   panel: 600,        // perfil y pantallas de datos
   lectura: 800,      // contenido corrido y respuestas
+  // El constructor de reportes es una herramienta, no un texto: necesita el monitor
+  // entero para que las dos columnas de campos entren sin apretarse.
+  herramienta: 1400,
 } as const;
 
 // Alturas fijas que no derivan de la escala de espaciado.

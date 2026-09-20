@@ -97,7 +97,7 @@ export function HistorialView() {
                 <EstadoVacio
                   titulo="No tienes consultas anteriores."
                   descripcion="Acá vas a poder ver el registro de todos los casos que analicemos juntos, para volver a consultarlos cuando lo necesites."
-                  accion={{ titulo: 'Hacer una consulta nueva', onPress: () => router.push('/(app)/') }}
+                  accion={{ titulo: 'Hacer una consulta nueva', onPress: () => router.push('/(app)/(tabs)/') }}
                 />
               ) : (
                 historial.map((item) => (
@@ -114,7 +114,7 @@ export function HistorialView() {
                 <EstadoVacio
                   titulo="No tienes documentos procesados."
                   descripcion="Cuando subas un documento jurídico vas a poder volver a abrir su análisis desde acá, sin subirlo de nuevo."
-                  accion={{ titulo: 'Analizar un documento', onPress: () => router.push('/(app)/documentos') }}
+                  accion={{ titulo: 'Analizar un documento', onPress: () => router.push('/(app)/(tabs)/documentos') }}
                 />
               ) : (
                 documentos.map((item) => (
@@ -131,7 +131,7 @@ export function HistorialView() {
                 <EstadoVacio
                   titulo="No tienes comparaciones realizadas."
                   descripcion="Cuando compares dos documentos vas a poder volver a abrir el resultado desde acá."
-                  accion={{ titulo: 'Comparar documentos', onPress: () => router.push('/(app)/comparar') }}
+                  accion={{ titulo: 'Comparar documentos', onPress: () => router.push('/(app)/(tabs)/comparar') }}
                 />
               ) : (
                 comparaciones.map((item) => (

@@ -7,7 +7,17 @@ export interface OpcionesPeticion extends RequestInit {
   params?: Record<string, string>;
 }
 
-export async function peticion<T>(ruta: string, opciones: OpcionesPeticion = {}): Promise<T> {
+export interface ArchivoDescargado {
+  blob: Blob;
+  nombre: string;
+}
+
+/**
+ * La parte comun de toda llamada: token, reintento de refresh y traduccion del error.
+ * Devuelve la Response cruda para que cada variante decida como leer el cuerpo (JSON o
+ * binario) sin repetir la autenticacion.
+ */
+async function enviar(ruta: string, opciones: OpcionesPeticion): Promise<Response> {
   const url = new URL(`${BASE_URL}${ruta}`);
   if (opciones.params) {
     Object.keys(opciones.params).forEach(key => url.searchParams.append(key, opciones.params![key]));
@@ -15,11 +25,11 @@ export async function peticion<T>(ruta: string, opciones: OpcionesPeticion = {})
 
   const tokens = await leerSesion();
   const headers = new Headers(opciones.headers || {});
-  
+
   if (tokens?.access_token) {
     headers.set('Authorization', `Bearer ${tokens.access_token}`);
   }
-  
+
   if (!headers.has('Content-Type') && !(opciones.body instanceof FormData)) {
     headers.set('Content-Type', 'application/json');
   }
@@ -33,7 +43,7 @@ export async function peticion<T>(ruta: string, opciones: OpcionesPeticion = {})
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ refresh_token: tokens.refresh_token })
     });
-    
+
     if (refreshRes.ok) {
       const newTokens = await refreshRes.json();
       await guardarSesion(newTokens);
@@ -68,9 +78,33 @@ export async function peticion<T>(ruta: string, opciones: OpcionesPeticion = {})
     throw error;
   }
 
+  return res;
+}
+
+export async function peticion<T>(ruta: string, opciones: OpcionesPeticion = {}): Promise<T> {
+  const res = await enviar(ruta, opciones);
+
   const contentType = res.headers.get('content-type');
   if (contentType && contentType.includes('application/json')) {
     return res.json();
   }
   return res.text() as unknown as T;
+}
+
+/**
+ * Para respuestas que son un archivo (xlsx, pdf, docx, pptx). El nombre lo decide el
+ * servidor en Content-Disposition; si esa cabecera no llega se usa el de respaldo, y
+ * en cualquier caso se limpia para que nunca sea una ruta.
+ */
+export async function peticionBinaria(
+  ruta: string,
+  opciones: OpcionesPeticion = {},
+  nombrePorDefecto = 'reporte',
+): Promise<ArchivoDescargado> {
+  const res = await enviar(ruta, opciones);
+  const disposicion = res.headers.get('content-disposition') || '';
+  const encontrado = /filename="?([^";]+)"?/i.exec(disposicion);
+  const crudo = encontrado ? encontrado[1] : nombrePorDefecto;
+  const nombre = crudo.replace(/[\\/:*?"<>|]/g, '_').replace(/\.\./g, '_');
+  return { blob: await res.blob(), nombre };
 }

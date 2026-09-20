@@ -52,7 +52,7 @@ export function ComparacionView() {
               Necesitás al menos dos documentos procesados para poder compararlos. Subilos desde
               la pantalla de análisis de documentos.
             </Text>
-            <Boton titulo="Ir a analizar documentos" onPress={() => router.push('/(app)/documentos')} />
+            <Boton titulo="Ir a analizar documentos" onPress={() => router.push('/(app)/(tabs)/documentos')} />
           </View>
         ) : (
           <>

@@ -27,7 +27,7 @@ export function ListaFuentes({ fuentes, areaDetectada }: Props) {
           fuente={f}
           colorArea={colorArea}
           alPulsar={() => {
-            router.push(`/articulo?codigo=${encodeURIComponent(f.codigo)}&numero=${f.numero_articulo}`);
+            router.push(`/(app)/articulo?codigo=${encodeURIComponent(f.codigo)}&numero=${f.numero_articulo}`);
           }}
         />
       ))}
