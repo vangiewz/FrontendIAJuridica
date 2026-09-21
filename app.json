@@ -8,7 +8,11 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSSpeechRecognitionUsageDescription": "Permite que $(PRODUCT_NAME) use el reconocimiento de voz para convertir tu voz en texto.",
+        "NSMicrophoneUsageDescription": "Permite que $(PRODUCT_NAME) use el micrófono para dictar tus consultas."
+      }
     },
     "android": {
       "package": "com.asistenciajuridica.civil",
@@ -23,6 +27,10 @@
         "android.permission.READ_EXTERNAL_STORAGE",
         "android.permission.WRITE_EXTERNAL_STORAGE",
         "android.permission.SYSTEM_ALERT_WINDOW"
+      ],
+      "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.CAMERA"
       ]
     },
     "web": {
@@ -88,6 +96,12 @@
           "color": "#1B6B4A"
         }
       ]
-    ]
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "25ecaf8c-0be9-4a22-85b5-69796e8de094"
+      }
+    }
   }
 }

@@ -6,6 +6,7 @@ import { useRecibidos } from '../../src/controllers/archivos/RecibidosContext';
 import { useRecordatorios } from '../../src/controllers/recordatorios/RecordatoriosContext';
 import { AyudaProvider } from '../../src/controllers/ayuda/AyudaContext';
 import { AsistenteAyudaGlobal } from '../../src/components/ayuda/AsistenteAyudaGlobal';
+import { BarraConexion } from '../../src/components/shared/BarraConexion';
 
 /**
  * Stack sobre las pestañas.
@@ -45,6 +46,7 @@ export default function AppLayout() {
   return (
     <AyudaProvider>
     <View style={{ flex: 1 }}>
+    <BarraConexion />
     <Stack screenOptions={{
       headerStyle: { backgroundColor: colores.superficie },
       headerTintColor: colores.tinta,

@@ -8,11 +8,12 @@ import { NavegacionArticulo } from '../../components/normativa/NavegacionArticul
 import { ExplicacionSimple } from '../../components/normativa/ExplicacionSimple';
 import { Aviso } from '../../components/shared/Aviso';
 import { SelloVigencia } from '../../components/consultas/SelloVigencia';
-import { colores, tipografia, espaciado, interlineado, anchos } from '../../theme';
+import { colores, tipografia, espaciado, interlineado, anchos, radios } from '../../theme';
 import { colorDeArea } from '../../theme/areas';
 import { Boton } from '../../components/shared/Boton';
 import { useVolver } from '../../controllers/navegacion/useVolver';
 import { EnlaceVolver } from '../../components/shared/EnlaceVolver';
+import { useConexion } from '../../controllers/conexion/useConexion';
 
 interface Props {
   codigo: string;
@@ -22,6 +23,7 @@ interface Props {
 export function ArticuloView({ codigo, numero }: Props) {
   const volver = useVolver('/(app)/(tabs)/');
   const { articulo, cargando, error } = useArticulo(codigo, numero);
+  const conexion = useConexion();
 
   if (cargando) {
     return (
@@ -59,7 +61,14 @@ export function ArticuloView({ codigo, numero }: Props) {
 
         <Text style={styles.textoCompleto}>{articulo.texto}</Text>
 
-        <ExplicacionSimple codigo={articulo.codigo} numero={articulo.numero_articulo} />
+        {conexion.estado === 'sin-red' || conexion.estado === 'servidor-caido' ? (
+          <View style={[styles.bloqueExplicacion, { marginTop: espaciado.xl }]}>
+            <Text style={styles.tituloExplicacion}>Explicación no disponible</Text>
+            <Text style={styles.notaExplicacion}>La asistencia por inteligencia artificial requiere conexión con el servidor.</Text>
+          </View>
+        ) : (
+          <ExplicacionSimple codigo={articulo.codigo} numero={articulo.numero_articulo} />
+        )}
 
         <ProcedenciaFuente
           fuenteNombre={articulo.fuente_nombre}
@@ -150,5 +159,23 @@ const styles = StyleSheet.create({
   },
   margenAviso: {
     marginTop: espaciado.xxl,
+  },
+  // Nota al margen de la cartilla: sin conexion no es un error, asi que va en el aviso
+  // informativo del sistema (fondo `linea`, tinta) y nunca en rojo.
+  bloqueExplicacion: {
+    backgroundColor: colores.linea,
+    borderRadius: radios.s,
+    padding: espaciado.m,
+  },
+  tituloExplicacion: {
+    fontFamily: tipografia.familias.cuerpoFuerte,
+    fontSize: tipografia.escala.nota,
+    color: colores.tinta,
+  },
+  notaExplicacion: {
+    fontFamily: tipografia.familias.cuerpo,
+    fontSize: tipografia.escala.nota,
+    color: colores.tintaSuave,
+    marginTop: espaciado.xs,
   },
 });

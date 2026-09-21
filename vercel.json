@@ -1,5 +1,5 @@
 {
-  "buildCommand": "npx expo export -p web",
+  "buildCommand": "npx expo export -p web && node scripts/inyectar-pwa.mjs && npx workbox generateSW workbox-config.js",
   "outputDirectory": "dist",
   "cleanUrls": true,
   "framework": null,
@@ -8,5 +8,9 @@
       "source": "/:path*",
       "destination": "/"
     }
+  ],
+  "headers": [
+    { "source": "/sw.js", "headers": [{ "key": "Cache-Control", "value": "no-store, max-age=0" }] },
+    { "source": "/manifest.json", "headers": [{ "key": "Cache-Control", "value": "no-store, max-age=0" }] }
   ]
 }

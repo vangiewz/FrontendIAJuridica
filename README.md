@@ -206,3 +206,25 @@ eventos del reconocedor). Solo en builds de desarrollo.
 | Dictar la consulta | `expo-speech-recognition`: reconocedor nativo de Android | **Development build** |
 
 Ninguna de las dos usa APIs de voz en la nube (ni OpenAI, ni Google Cloud, ni Azure, ni AWS).
+
+## Despliegue PWA (Web)
+
+La app puede desplegarse en Vercel como PWA con soporte offline y notificaciones de actualización.
+
+### Construcción
+
+El proceso de build, definido en `vercel.json`, ejecuta:
+1. `npx expo export -p web` (compila la web a `dist/`)
+2. `npx workbox generateSW workbox-config.js` (inyecta el manifiesto PWA a los archivos resultantes)
+
+### Pruebas
+
+Para probar la PWA offline en tu máquina:
+```bash
+npx expo export -p web
+npx workbox generateSW workbox-config.js
+npx serve dist
+```
+1. Abre `http://localhost:3000` en el navegador.
+2. Abre las herramientas de desarrollo > Application > Service Workers (debería aparecer `sw.js` activo).
+3. Apaga la red del navegador (Network > Offline) y recarga la página: la app debe cargar mostrando el banner de "Sin conexión".

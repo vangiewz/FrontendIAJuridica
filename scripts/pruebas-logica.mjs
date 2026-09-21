@@ -25,6 +25,7 @@ const modulos = [
   'src/components/consultas/etapas.ts',
   'src/components/consultas/analizarTexto.ts',
   'src/components/avatar/estados.ts',
+  'src/components/shared/textoConexion.ts',
   'src/services/persistencia/claves.ts',
   'src/services/sync/backoff.ts',
   'src/services/sync/clasificarError.ts',
@@ -58,6 +59,7 @@ const { elegirIdioma, clasificarError, mensajeDescarga, MENSAJES_DICTADO } = car
 const { pasoDeEtapa } = cargar('./components/consultas/etapas');
 const { analizarTexto } = cargar('./components/consultas/analizarTexto');
 const { resolverEstadoAvatar, estadoAvatarDelPanel, ETIQUETA_AVATAR, TEXTO_ESTADO } = cargar('./components/avatar/estados');
+const { textoConexion } = cargar('./components/shared/textoConexion');
 const { detectarIntencionLlamada, aPlano } = cargar('./services/llamada/intencion');
 const {
   nombreHablado, primerasOraciones, resumenAnalisis, resumenComparacion, resumenGenerado,
@@ -1128,6 +1130,23 @@ try {
     assert.deepEqual(P.buscarRecordatorios(lista, 'cancelá el recordatorio').map((r) => r.id), ['a', 'b', 'c']); // sin pista: el que llama pide elegir
     assert.deepEqual(P.buscarRecordatorios(lista, 'cancelá el recordatorio de la audiencia'), []);
     assert.deepEqual(P.buscarRecordatorios([...lista, REC({ id: 'x', estado: 'pasado', titulo: 'contrato viejo' })], 'contrato').map((r) => r.id), ['a']);
+  });
+
+  console.log('--- textoConexion ---');
+  ok('situaciones sin red', () => {
+    assert.deepEqual(textoConexion({ tipo: 'sin-red', pendientes: 0 }), { texto: 'Sin conexión · seguís viendo lo que ya tenés guardado' });
+    assert.deepEqual(textoConexion({ tipo: 'sin-red', pendientes: 1 }), { texto: 'Sin conexión · 1 consulta se enviará al volver la red' });
+    assert.deepEqual(textoConexion({ tipo: 'sin-red', pendientes: 3 }), { texto: 'Sin conexión · 3 consultas se enviarán al volver la red' });
+  });
+  ok('situaciones enviando y enviado', () => {
+    assert.deepEqual(textoConexion({ tipo: 'enviando', pendientes: 2 }), { texto: 'Enviando 2…' });
+    assert.deepEqual(textoConexion({ tipo: 'enviado' }), { texto: 'Listo · se envió todo' });
+  });
+  ok('situaciones con fallos y aviso de sesion', () => {
+    assert.deepEqual(textoConexion({ tipo: 'fallo', pendientes: 2 }), { texto: 'No se pudo enviar 2', accion: 'Reintentar' });
+    assert.deepEqual(textoConexion({ tipo: 'sesion', pendientes: 4 }), { texto: 'Tenés 4 sin enviar', accion: 'Iniciar sesión' });
+    assert.deepEqual(textoConexion({ tipo: 'actualizacion' }), { texto: 'Hay una versión nueva', accion: 'Actualizar' });
+    assert.deepEqual(textoConexion({ tipo: 'oculta' }), { texto: '' });
   });
 
   console.log(`\n${total} pruebas OK`);

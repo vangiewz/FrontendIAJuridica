@@ -29,6 +29,7 @@ export interface Intercambio {
   /** Momento (Date.now) en que se envió; sirve para el reloj de espera. */
   iniciadoEn: number;
   duracionMs: number | null;
+  encolado?: boolean;
 }
 
 const PERDIDA_DE_CONEXION =
@@ -152,7 +153,7 @@ export function useAsistente(documentoInicial: DocumentoActivo | null = null) {
       }
 
       if (!id) {
-        setIntercambios((previos) => previos.filter((i) => i.id !== localId));
+        actualizar(localId, { encolado: true, etapa: null });
         ocupado.current = false;
         setEnviando(false);
         return true;

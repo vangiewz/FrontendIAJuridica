@@ -5,6 +5,19 @@ import { OperacionPendiente } from '../../models/shared/sincronizacion';
 import { leerCola, reintentarAhora, suscribirCola } from '../../services/sync/cola';
 import { sincronizar, estaEnPausa } from '../../services/sync/despachador';
 import { SesionContext } from '../auth/SesionContext';
+import { useCorpusLocal } from '../normativa/useCorpusLocal';
+
+function GestorCorpus({ intentosSincronizacion }: { intentosSincronizacion: number }) {
+  const { estado, reintentar } = useCorpusLocal();
+
+  useEffect(() => {
+    if (estado === 'sin-red') {
+      reintentar();
+    }
+  }, [intentosSincronizacion, estado, reintentar]);
+
+  return null;
+}
 
 interface SyncContextValue {
   pendientes: OperacionPendiente[];
@@ -25,6 +38,9 @@ export function SincronizacionProvider({ children }: { children: React.ReactNode
   const [pausada, setPausada] = useState(estaEnPausa());
   const { usuario } = useContext(SesionContext);
 
+  const [intentosSync, setIntentosSync] = useState(0);
+  const [listoParaCorpus, setListoParaCorpus] = useState(false);
+
   const refrescarCola = useCallback(async () => {
     const cola = await leerCola();
     setPendientes(cola);
@@ -38,6 +54,8 @@ export function SincronizacionProvider({ children }: { children: React.ReactNode
     try {
       await sincronizar(queryClient);
       await refrescarCola();
+      setListoParaCorpus(true);
+      setIntentosSync(c => c + 1);
     } finally {
       reentrancyGuard.current = false;
     }
@@ -52,6 +70,8 @@ export function SincronizacionProvider({ children }: { children: React.ReactNode
   useEffect(() => {
     if (usuario) {
       llamarSincronizar();
+    } else {
+      setListoParaCorpus(false);
     }
   }, [usuario, llamarSincronizar]);
 
@@ -91,6 +111,7 @@ export function SincronizacionProvider({ children }: { children: React.ReactNode
   return (
     <SincronizacionContext.Provider value={value}>
       {children}
+      {usuario && listoParaCorpus && <GestorCorpus intentosSincronizacion={intentosSync} />}
     </SincronizacionContext.Provider>
   );
 }
