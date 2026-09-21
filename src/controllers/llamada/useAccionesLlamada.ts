@@ -34,6 +34,7 @@ import { useEscanerLlamada } from './useEscanerLlamada';
 import { useRecibidosLlamada } from './useRecibidosLlamada';
 import { useSalidaLlamada } from './useSalidaLlamada';
 import { useRecordatoriosLlamada } from './useRecordatoriosLlamada';
+import { useAyudaLlamada } from './useAyudaLlamada';
 
 /**
  * El ORQUESTADOR de la llamada: lleva las órdenes de voz que no son una consulta jurídica
@@ -524,9 +525,13 @@ export function useAccionesLlamada(e: EntradasAcciones) {
     ...recordatoriosLl.contexto(),
   });
 
+  // ── Ayuda: «¿qué podés hacer?» se responde aquí, con el catálogo, sin consulta jurídica ─────────────
+  const ayuda = useAyudaLlamada({ panel, hablar, contexto });
+
   /** Ejecuta una orden que NO es una consulta. La consulta jurídica la resuelve `useLlamada`. */
   const ejecutar = async (intencion: IntencionLlamada, texto: string) => {
     switch (intencion.tipo) {
+      case 'ayuda': return ayuda.explicarPorVoz(intencion.tema);
       case 'subir_documento': return abrirSelector('documento', true);
       case 'analizar_documento': return analizarActivo();
       case 'cerrar_documento': return cerrarDocumento(true);
@@ -590,6 +595,8 @@ export function useAccionesLlamada(e: EntradasAcciones) {
     salida,
     /** Recordatorios jurídicos locales (notificaciones de Android, con confirmación explícita). */
     recordatorios: recordatoriosLl,
+    /** «¿Qué puedo hacer?»: el catálogo de capacidades, en el panel y por voz. */
+    ayuda,
   };
 }
 

@@ -5,6 +5,17 @@ export interface CampoPlantilla {
   clave: string;
   etiqueta: string;
   obligatorio: boolean;
+  /** Cómo se escribe el dato: se muestra en gris dentro del campo vacío. Servidores viejos no lo mandan. */
+  ejemplo?: string;
+}
+
+/** Un campo que el usuario tiene que revisar, y por qué. `error`: hay que corregirlo; `aviso`: conviene. */
+export interface ProblemaCampo {
+  clave: string;
+  etiqueta: string;
+  mensaje: string;
+  ejemplo?: string;
+  nivel: 'error' | 'aviso';
 }
 
 export interface Plantilla {
@@ -92,4 +103,6 @@ export interface InterpretacionResponse {
   descartados: string[];
   requiere_tipo: boolean;
   mensaje: string;
+  /** Campos que quedaron con algo que no sirve; se avisan antes de intentar generar. */
+  problemas?: ProblemaCampo[];
 }

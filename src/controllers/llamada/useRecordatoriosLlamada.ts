@@ -131,7 +131,7 @@ export function useRecordatoriosLlamada(e: EntradasRecordatorios) {
 
   // ── Crear ───────────────────────────────────────────────────────────────────────────
   const crearPorVoz = (texto: string) => {
-    if (!recs.disponible) { void habla('rec-no', 'Los recordatorios solo están disponibles en la app del celular.'); return; }
+    if (!recs.disponible) { void habla('rec-no', 'Los recordatorios no están disponibles en esta versión de la app. Instala la versión más reciente en el celular.'); return; }
     const ahora = new Date();
     const i = interpretarRecordatorio(texto, ahora);
     const enPanel = abierto && e.panel.contenido?.tipo === 'recordatorio' ? abierto : null;

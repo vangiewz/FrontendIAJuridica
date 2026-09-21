@@ -86,3 +86,6 @@ PRODUCT.md
 # Salida temporal de scripts/pruebas-logica.mjs. Vive dentro del repo porque el
 # require de los modulos compilados tiene que resolver node_modules del proyecto.
 .test-out-*/
+
+# La configuración de producción solo tiene valores públicos: se versiona.
+!.env.production

@@ -116,8 +116,15 @@ async function enviar(ruta: string, opciones: OpcionesPeticion): Promise<Respons
     } catch (e) {}
 
     let mensajeError = 'Error en la petición';
+    let detalle: unknown;
+    const detailObjeto = errData.detail as { mensaje?: unknown } | null | undefined;
     if (typeof errData.detail === 'string') {
       mensajeError = errData.detail;
+    } else if (detailObjeto && typeof detailObjeto === 'object' && !Array.isArray(detailObjeto)
+      && typeof detailObjeto.mensaje === 'string') {
+      // Un error con estructura: el mensaje para el usuario y datos extra (qué campos corregir).
+      mensajeError = detailObjeto.mensaje;
+      detalle = errData.detail;
     } else if (Array.isArray(errData.detail) && errData.detail.length > 0 && errData.detail[0].msg) {
       mensajeError = errData.detail[0].msg;
     } else if (typeof errData.message === 'string') {
@@ -127,7 +134,8 @@ async function enviar(ruta: string, opciones: OpcionesPeticion): Promise<Respons
     const error: ApiError = {
       mensaje: mensajeError,
       codigo: (errData.code as string) || 'API_ERROR',
-      estado: res.status
+      estado: res.status,
+      ...(detalle !== undefined ? { detalle } : {}),
     };
     throw error;
   }

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Consulta } from '../../models/consultas';
 import { ItemDocumento } from '../../models/documentos';
+import { TemaAyuda } from '../../config/capacidadesAsistente';
 import { obtenerConsulta } from '../../services/consultas';
 import { encolar, esperarResultado } from '../../services/sync/cola';
 import { randomUUID } from 'expo-crypto';
@@ -29,7 +30,13 @@ export interface Intercambio {
   /** Momento (Date.now) en que se envió; sirve para el reloj de espera. */
   iniciadoEn: number;
   duracionMs: number | null;
+  /** Quedo en la cola de salida: se envia sola cuando vuelva la conexion. */
   encolado?: boolean;
+  /**
+   * Es una respuesta LOCAL de ayuda («¿qué podés hacer?»): no hubo consulta ni servidor. El valor es el tema
+   * de ayuda; el hilo la dibuja con el catálogo de capacidades.
+   */
+  ayuda?: TemaAyuda;
 }
 
 const PERDIDA_DE_CONEXION =
@@ -186,6 +193,19 @@ export function useAsistente(documentoInicial: DocumentoActivo | null = null) {
     void preguntar(fallido.pregunta);
   }, [detener, seguir, actualizar, preguntar]);
 
+  /**
+   * Agrega al hilo una respuesta de ayuda sobre la propia app. No pasa por `preguntar`: no consulta al
+   * asistente jurídico, no usa el servidor y no queda «enviando».
+   */
+  const responderAyuda = useCallback((pregunta: string, tema: TemaAyuda) => {
+    const ahora = Date.now();
+    setIntercambios((previos) => [...previos, {
+      id: `ayuda-${ahora}-${previos.length}`, pregunta: pregunta.trim(), documentoNombre: documento?.nombre_archivo ?? null,
+      consulta: null, consultaId: null, etapa: null, error: null, reconectando: false, iniciadoEn: ahora,
+      duracionMs: 0, ayuda: tema,
+    }]);
+  }, [documento]);
+
   /** Cambiar de documento no borra lo ya conversado; solo cambia el contexto siguiente. */
   const elegirDocumento = useCallback((nuevo: DocumentoActivo | null) => {
     setDocumento(nuevo);
@@ -200,6 +220,6 @@ export function useAsistente(documentoInicial: DocumentoActivo | null = null) {
 
   return {
     documento, elegirDocumento,
-    intercambios, enviando, preguntar, reintentar, limpiarConversacion, detener,
+    intercambios, enviando, preguntar, responderAyuda, reintentar, limpiarConversacion, detener,
   };
 }
