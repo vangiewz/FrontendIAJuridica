@@ -1,4 +1,5 @@
-# Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
+# Learn more:
+# https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
 
 # dependencies
 node_modules/
@@ -21,42 +22,64 @@ expo-env.d.ts
 # Metro
 .metro-health-check*
 
-# debug
+# debug / logs
 npm-debug.*
 yarn-debug.*
 yarn-error.*
+*.log
 
 # macOS
 .DS_Store
 *.pem
 
-# local env files
-.env*.local
+# local environment files
 .env
 .ENV
 .env.*
 !.env.example
-ollama/
-models/
-.venv/
 
-# typescript
+# Python / virtual environments
+.venv/
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Local AI models / large model files
+ollama/
+*.gguf
+*.safetensors
+
+# Si alguna vez existe una carpeta "models" SOLO en la raíz
+# y contiene modelos pesados, ignorar únicamente esa:
+#/models/
+
+# TypeScript
 *.tsbuildinfo
 
 # generated native folders
 /ios
 /android
 
-# ---- Archivos de Inteligencia Artificial ----
+# Build artifacts
+*.apk
+*.aab
+
+# Temporary / local files
+tmp/
+temp/
+scratchpad/
+
+# ---- Archivos de herramientas de IA / asistentes ----
 .claude/
 .impeccable/
 .gemini/
 .cursor/
 .cline/
+
 AGENTS.md
 CLAUDE.md
 
 # Documentos de trabajo: no se publican
 DESIGN.md
 PRODUCT.md
-.impeccable/

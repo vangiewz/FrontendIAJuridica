@@ -62,6 +62,31 @@ En este orden:
 No hay ninguna IP escrita en el código. Con el cable USB también sirve `adb reverse tcp:8000 tcp:8000`
 junto con `EXPO_PUBLIC_API_URL=http://localhost:8000`.
 
+## Levantar Android por USB con ADB
+
+Requisitos: celular con *Depuración USB* activada, cable de datos, `adb`
+(`winget install --id Google.PlatformTools -e`) y la development build instalada (ver más abajo).
+
+```powershell
+# Terminal 1 - backend (Ollama debe estar abierto)
+cd ..\BackendIAJuridica
+.\.venv\Scripts\Activate.ps1
+uvicorn app.main:app --host 127.0.0.1 --port 8000
+
+# Terminal 2 - frontend: ADB, reverse, comprobaciones y Metro, todo en uno
+cd FrontendIAJuridica
+.\scripts\start_android_usb.ps1
+```
+
+El script equivale a `adb devices`, `adb reverse tcp:8000 tcp:8000`, `adb reverse tcp:8081 tcp:8081`
+y `npm run start:dev`. Abre la app **Asistencia Juridica Civil** en el celular (el script la lanza si está
+instalada); si pide un servidor, `http://127.0.0.1:8081`. Si el celular sale como `unauthorized`,
+acepta *Permitir depuración USB* en su pantalla.
+
+URL del backend: por USB `EXPO_PUBLIC_API_URL=http://127.0.0.1:8000` (ya está en `.env.local`, ignorado
+por git); por LAN `EXPO_PUBLIC_API_URL=http://IP_PC:8000`; sin la variable la app deduce la IP de la PC.
+Tras cambiarla hay que reiniciar Metro con `-c`.
+
 ## Probar con Expo Go (sin dictado por voz)
 
 Útil para revisar la app en general. Necesita Expo Go actualizado desde la tienda (SDK 57).
