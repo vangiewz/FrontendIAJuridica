@@ -3,6 +3,7 @@ import { Usuario, Tokens, RegistroPayload } from '../../models/auth';
 import { leerSesion, borrarSesion, guardarSesion, leerUsuario, guardarUsuario, borrarUsuario } from '../../services/almacenamiento';
 import { peticion, esErrorDeTransporte } from '../../services/api';
 import { useRouter, useSegments } from 'expo-router';
+import { reanudar } from '../../services/sync/despachador';
 
 interface SesionContextValue {
   usuario: Usuario | null;
@@ -58,6 +59,7 @@ export function SesionProvider({ children }: { children: ReactNode }) {
     }
   };
 
+
   const iniciarSesion = async (email: string, password: string) => {
     const tokens = await peticion<Tokens>('/api/v1/auth/login', {
       method: 'POST',
@@ -65,6 +67,7 @@ export function SesionProvider({ children }: { children: ReactNode }) {
     });
     
     await guardarSesion(tokens);
+    reanudar();
     const userData = await peticion<Usuario>('/api/v1/auth/yo');
     await guardarUsuario(userData);
     setUsuario(userData);

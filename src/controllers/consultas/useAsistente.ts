@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Consulta } from '../../models/consultas';
 import { ItemDocumento } from '../../models/documentos';
-import { iniciarConsulta, obtenerConsulta } from '../../services/consultas';
+import { obtenerConsulta } from '../../services/consultas';
+import { encolar, esperarResultado } from '../../services/sync/cola';
+import { randomUUID } from 'expo-crypto';
 
 const INTERVALO_MS = 2000;
 /**
@@ -133,12 +135,21 @@ export function useAsistente() {
         reconectando: false, iniciadoEn: inicio, duracionMs: null,
       }]);
 
-      let id: string;
+      let id: string | null = null;
       try {
-        id = await iniciarConsulta(limpio, documento?.id ?? null);
+        const payload = { texto: limpio, documento_id: documento?.id ?? null, client_op_id: randomUUID() };
+        const op = await encolar('consulta.iniciar', payload);
+        id = await esperarResultado(op.id, 4000);
       } catch (e: any) {
         // Sin id no hay hilo que seguir: el error se muestra como un intercambio fallido.
         actualizar(localId, { error: e?.mensaje || 'No se pudo enviar la consulta' });
+        ocupado.current = false;
+        setEnviando(false);
+        return true;
+      }
+
+      if (!id) {
+        setIntercambios((previos) => previos.filter((i) => i.id !== localId));
         ocupado.current = false;
         setEnviando(false);
         return true;

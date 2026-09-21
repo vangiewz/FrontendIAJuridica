@@ -5,6 +5,7 @@ import { Archivo_900Black } from '@expo-google-fonts/archivo';
 import { AtkinsonHyperlegibleNext_400Regular, AtkinsonHyperlegibleNext_700Bold } from '@expo-google-fonts/atkinson-hyperlegible-next';
 import { SesionProvider } from '../src/controllers/auth/SesionContext';
 import { PersistenciaProvider } from '../src/controllers/persistencia/PersistenciaProvider';
+import { SincronizacionProvider } from '../src/controllers/sync/SincronizacionContext';
 
 export default function RootLayout() {
   const [fontsLoaded, error] = useFonts({
@@ -20,7 +21,9 @@ export default function RootLayout() {
   return (
     <PersistenciaProvider>
       <SesionProvider>
-        <Slot />
+        <SincronizacionProvider>
+          <Slot />
+        </SincronizacionProvider>
       </SesionProvider>
     </PersistenciaProvider>
   );

@@ -1,6 +1,5 @@
 import { QueryClient } from '@tanstack/react-query';
 import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persister';
-// @ts-ignore: Metro resuelve a .web o .native en runtime
 import { almacen } from './almacen';
 
 export const VERSION_CACHE = 'v1';

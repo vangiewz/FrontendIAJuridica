@@ -26,6 +26,9 @@ const modulos = [
   'src/components/consultas/analizarTexto.ts',
   'src/components/avatar/estados.ts',
   'src/services/persistencia/claves.ts',
+  'src/services/sync/backoff.ts',
+  'src/services/sync/clasificarError.ts',
+  'src/models/consultas/esquemas.ts',
 ];
 
 try {
@@ -229,6 +232,36 @@ try {
   ok('una cache guardada con otra version se descarta', () => assert.equal(conBusterDistinto, true));
   const conMismoBuster = await restaurarCon('v1');
   ok('una cache de la version actual se conserva', () => assert.equal(conMismoBuster, false));
+
+  console.log('--- Sincronizacion ---');
+  const { proximoIntento } = cargar('./services/sync/backoff');
+  ok('backoff progresa y respeta el techo', () => {
+    const b0 = proximoIntento(0, 1000, 0.5);
+    const b1 = proximoIntento(1, 1000, 0.5);
+    const b10 = proximoIntento(10, 1000, 0.5);
+    assert.ok(b1 > b0, 'Debe aumentar con los intentos');
+    assert.equal(b10, 1000 + 1_800_000, 'Debe respetar el techo de 30 minutos sin jitter si rnd es 0.5');
+  });
+
+  const { clasificar } = cargar('./services/sync/clasificarError');
+  ok('clasificarError asigna el desenlace correcto', () => {
+    assert.equal(clasificar({ codigo: 'SIN_CONEXION' }).desenlace, 'reintentar');
+    assert.equal(clasificar({ estado: 500 }).desenlace, 'reintentar');
+    assert.equal(clasificar({ estado: 429 }).desenlace, 'reintentar');
+    assert.equal(clasificar({ estado: 200 }).desenlace, 'exito');
+    assert.equal(clasificar({ estado: 409 }).desenlace, 'exito');
+    assert.equal(clasificar({ estado: 400 }).desenlace, 'descartar');
+    assert.equal(clasificar({ estado: 422 }).desenlace, 'descartar');
+    assert.equal(clasificar({ estado: 401 }).desenlace, 'pausar');
+    assert.equal(clasificar({ estado: 404 }).desenlace, 'descartar');
+  });
+
+  const { EsquemaConsultaIniciar } = cargar('./models/consultas/esquemas');
+  ok('EsquemaConsultaIniciar valida payload, texto corto, largo y nulls', () => {
+    assert.ok(EsquemaConsultaIniciar.safeParse({ texto: 'Hola mundo', documento_id: null, client_op_id: '123e4567-e89b-12d3-a456-426614174000' }).success);
+    assert.ok(!EsquemaConsultaIniciar.safeParse({ texto: 'Ho', documento_id: null, client_op_id: '123e4567-e89b-12d3-a456-426614174000' }).success);
+    assert.ok(!EsquemaConsultaIniciar.safeParse({ texto: 'H'.repeat(2001), documento_id: null, client_op_id: '123e4567-e89b-12d3-a456-426614174000' }).success);
+  });
 
   console.log(`\n${total} pruebas OK`);
 } finally {
