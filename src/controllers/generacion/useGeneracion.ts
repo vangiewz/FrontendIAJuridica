@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { InterpretacionResponse, Plantilla } from '../../models/generacion';
+import { InterpretacionResponse, Plantilla, ProblemaCampo } from '../../models/generacion';
 import {
   generarDocumento, interpretarPedido, listarPlantillas,
 } from '../../services/generacion';
@@ -14,6 +14,8 @@ export function useGeneracion() {
   const [cargando, setCargando] = useState(false);
   const [interpretando, setInterpretando] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** Los campos que el usuario tiene que corregir, con el motivo de cada uno. */
+  const [problemas, setProblemas] = useState<ProblemaCampo[]>([]);
 
   useEffect(() => {
     listarPlantillas()
@@ -39,7 +41,9 @@ export function useGeneracion() {
     setInterpretando(true);
     setError(null);
     try {
-      return await interpretarPedido(limpio, tipo, datos);
+      const respuesta = await interpretarPedido(limpio, tipo, datos);
+      setProblemas(respuesta.problemas ?? []);
+      return respuesta;
     } catch (e: any) {
       setError(e.mensaje || 'No se pudo interpretar el texto. Podés completar el formulario a mano.');
       return null;
@@ -51,15 +55,23 @@ export function useGeneracion() {
   const generar = async (tipo: string, datos: Record<string, string>): Promise<string | null> => {
     setCargando(true);
     setError(null);
+    setProblemas([]);
     try {
       return (await generarDocumento(tipo, datos)).id;
     } catch (e: any) {
       setError(e.mensaje || 'No se pudo generar el borrador');
+      // Si el servidor dijo QUÉ campos corregir, se marcan en el formulario.
+      setProblemas((e?.detalle as { campos?: ProblemaCampo[] } | undefined)?.campos ?? []);
       return null;
     } finally {
       setCargando(false);
     }
   };
 
-  return { plantillas, cargando, interpretando, error, interpretar, generar, setError };
+  /** Quita el problema de un campo apenas el usuario lo edita: ya no vale lo que se dijo del valor anterior. */
+  const quitarProblema = (clave: string) => setProblemas((previos) => previos.filter((p) => p.clave !== clave));
+
+  return {
+    plantillas, cargando, interpretando, error, problemas, interpretar, generar, setError, setProblemas, quitarProblema,
+  };
 }

@@ -1,4 +1,6 @@
-import { DET, DOC, PREFIJO, re } from './intencionBase';
+import { aPlano, DET, DOC, PREFIJO, re } from './intencionBase';
+import { detectarTemaAyuda } from './intencionAyuda';
+import type { TemaAyuda } from './intencionAyuda';
 import {
   accionDeRecordatorio, AccionRecordatorio, ContextoRecordatorios, esAjusteDePropuesta, respuestaAPendiente,
   RespuestaRecordatorio,
@@ -23,6 +25,8 @@ export type ObjetoMostrable = 'respuesta' | 'documento' | 'comparacion' | 'gener
 
 export type IntencionLlamada =
   | { tipo: 'consulta' }
+  /** Una pregunta sobre la propia app («¿qué podés hacer?», «¿cómo genero un contrato?»): se responde en el teléfono, sin consulta. */
+  | { tipo: 'ayuda'; tema: TemaAyuda }
   /** Abrir el selector: el archivo será el documento activo. */
   | { tipo: 'subir_documento' }
   | { tipo: 'analizar_documento' }
@@ -62,16 +66,7 @@ export interface ContextoIntencion extends ContextoRecordatorios {
   recibido?: boolean;
 }
 
-/** Minúsculas, sin acentos ni signos: «Compará» y «compara» son la misma frase. */
-export function aPlano(texto: string): string {
-  return (texto || '')
-    .toLowerCase()
-    .normalize('NFD').replace(/[̀-ͯ]/g, '')
-    .replace(/[¿?¡!.,;:«»"“”()]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
+export { aPlano };
 
 // ── Pregunta abierta de la generación por voz ────────────────────────────────────────
 const FLUJO_CANCELAR = re(
@@ -99,7 +94,7 @@ const ANALIZAR = re(
 // Solo las ÓRDENES abren la cámara (empiezan por su verbo). «¿Cómo escaneo un contrato para
 // que valga?» o «validez de un contrato escaneado» son consultas jurídicas y no calzan.
 const ESCANEAR_VERBO = re(`${PREFIJO}(?:escane\\w*|digitaliz\\w*|fotografi\\w*)\\b`);
-const USAR_CAMARA = re(`${PREFIJO}(?:usar|abrir|abr\\w*|activ\\w*|prend\\w*)\\s+(?:la\\s+)?camara\\b`);
+const USAR_CAMARA = re(`${PREFIJO}(?:usar|usa|utiliz\\w*|abrir|abr\\w*|activ\\w*|prend\\w*)\\s+(?:la\\s+)?camara\\b`);
 const SACAR_FOTO = re(`${PREFIJO}(?:sacar|saca\\w*|tomar|toma\\w*|hacer|hac\\w*)\\s+(?:le\\s+|me\\s+)?(?:una\\s+)?foto(?:grafia)?s?\\b`);
 const DOCUMENTO_EN_PAPEL = re(
   `${PREFIJO}(?:analiz\\w*|revis\\w*)\\s+(?:\\w+\\s+){0,3}(?:documento|contrato|acuerdo)s?\\s+(?:en|de)\\s+papel\\b`);
@@ -160,6 +155,12 @@ const PANEL = re(
 export function detectarIntencionLlamada(texto: string, ctx: ContextoIntencion): IntencionLlamada {
   const p = aPlano(texto);
   if (!p) return { tipo: 'consulta' };
+
+  // 0. Una pregunta sobre la app misma. Va primero, pero solo calza con frases ANCLADAS que le hablan al
+  //    asistente o nombran la app (`intencionAyuda.ts`): «¿qué puede hacer un acreedor?» sigue siendo consulta.
+  //    Ninguna de esas frases es un dato plausible de una pregunta de la generación ni un «sí» o «no».
+  const ayuda = detectarTemaAyuda(p, ctx);
+  if (ayuda) return { tipo: 'ayuda', tema: ayuda };
 
   // 1. Una pregunta abierta de la generación por voz: lo que se diga responde a ella,
   //    salvo que sea cancelarla, pedir el documento ya u omitir el dato.

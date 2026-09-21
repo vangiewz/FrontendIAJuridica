@@ -1,5 +1,5 @@
 import { Platform } from 'react-native';
-import * as Notifications from 'expo-notifications';
+import type { NotificationResponse, SchedulableNotificationTriggerInput } from 'expo-notifications';
 import { aClave, aDate, deClave } from './fechas';
 import {
   HORIZONTE_MENSUAL, ocurrenciasMensuales, RecordatorioJuridico, textoNotificacion, usaOcurrenciasExplicitas,
@@ -18,7 +18,25 @@ import {
  * alarma crítica; Android puede adelantar o retrasar el aviso unos minutos por ahorro de batería.
  */
 
-export const NOTIFICACIONES_DISPONIBLES = Platform.OS === 'android';
+/**
+ * `expo-notifications` se carga con `require` dentro de un `try`: su módulo nativo solo existe si
+ * el APK se compiló CON él. En un build anterior (o donde no hay módulo) importarlo de forma
+ * estática tumba toda la app al arrancar («Cannot find native module 'ExpoPushTokenManager'»).
+ * Así la app abre igual y los recordatorios quedan desactivados hasta reinstalar el build.
+ */
+function cargarNotificaciones(): typeof import('expo-notifications') | null {
+  if (Platform.OS !== 'android') return null;
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    return require('expo-notifications') as typeof import('expo-notifications');
+  } catch {
+    return null;
+  }
+}
+
+const Notifications = cargarNotificaciones() as typeof import('expo-notifications');
+
+export const NOTIFICACIONES_DISPONIBLES = Platform.OS === 'android' && Notifications !== null;
 export const CANAL_ID = 'recordatorios-juridicos';
 
 export type EstadoPermiso = 'concedido' | 'denegado' | 'denegado_definitivo';
@@ -78,7 +96,7 @@ export async function pedirPermiso(): Promise<EstadoPermiso> {
 // ── Programar y cancelar ────────────────────────────────────────────────────────────────
 const DATOS = { v: 1 } as const;
 
-async function programarUna(r: RecordatorioJuridico, trigger: Notifications.SchedulableNotificationTriggerInput): Promise<string> {
+async function programarUna(r: RecordatorioJuridico, trigger: SchedulableNotificationTriggerInput): Promise<string> {
   const { titulo, cuerpo } = textoNotificacion(r);
   return Notifications.scheduleNotificationAsync({
     // Solo el id del recordatorio viaja en los datos: al tocar el aviso se resuelve la metadata local.
@@ -160,7 +178,7 @@ export interface ToqueDeNotificacion {
   recordatorioId: string;
 }
 
-export function toqueDe(respuesta: Notifications.NotificationResponse | null): ToqueDeNotificacion | null {
+export function toqueDe(respuesta: NotificationResponse | null): ToqueDeNotificacion | null {
   if (!respuesta) return null;
   const pedido = respuesta.notification.request;
   const id = (pedido.content.data as { recordatorioId?: unknown } | undefined)?.recordatorioId;

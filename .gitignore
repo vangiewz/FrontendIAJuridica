@@ -83,3 +83,5 @@ CLAUDE.md
 # Documentos de trabajo: no se publican
 DESIGN.md
 PRODUCT.md
+# La configuración de producción solo tiene valores públicos: se versiona.
+!.env.production

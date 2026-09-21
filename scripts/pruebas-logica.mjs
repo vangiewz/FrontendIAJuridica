@@ -33,6 +33,9 @@ const modulos = [
   'src/services/recordatorios/interpretar.ts',
   'src/services/recordatorios/modelo.ts',
   'src/services/recordatorios/propuesta.ts',
+  'src/config/capacidadesAsistente.ts',
+  'src/services/llamada/intencionAyuda.ts',
+  'src/services/llamada/ayudaAsistente.ts',
 ];
 
 try {
@@ -53,6 +56,7 @@ const { pasoDeEtapa } = cargar('./components/consultas/etapas');
 const { analizarTexto } = cargar('./components/consultas/analizarTexto');
 const { resolverEstadoAvatar, estadoAvatarDelPanel, ETIQUETA_AVATAR, TEXTO_ESTADO } = cargar('./components/avatar/estados');
 const { detectarIntencionLlamada, aPlano } = cargar('./services/llamada/intencion');
+const { detectarAyudaEnTexto } = cargar('./services/llamada/intencionAyuda');
 const {
   nombreHablado, primerasOraciones, resumenAnalisis, resumenComparacion, resumenGenerado,
   resumenReporte, preguntaDeCampo, resumenEscaneo,
@@ -80,18 +84,24 @@ try {
   console.log('--- URL del backend ---');
   ok('la variable explícita gana y pierde la barra final', () =>
     assert.equal(resolverBaseUrl({ variable: 'http://10.0.0.5:9000/', hostUri: '192.168.1.23:8081', plataforma: 'android' }), 'http://10.0.0.5:9000'));
+  ok('false selecciona cloud y true selecciona local', () => {
+    assert.equal(resolverBaseUrl({ usarLocal: 'false', urlLocal: 'http://127.0.0.1:8000', urlCloud: 'https://cloud.test/', plataforma: 'android' }), 'https://cloud.test');
+    assert.equal(resolverBaseUrl({ usarLocal: 'true', urlLocal: 'http://127.0.0.1:8000/', urlCloud: 'https://cloud.test', plataforma: 'android' }), 'http://127.0.0.1:8000');
+  });
+  ok('false no se interpreta como true por ser texto', () =>
+    assert.equal(resolverBaseUrl({ usarLocal: 'FALSE', urlLocal: 'http://local.test', urlCloud: 'https://cloud.test', plataforma: 'android' }), 'https://cloud.test'));
   ok('celular sin variable: host de Metro y puerto 8000', () =>
     assert.equal(resolverBaseUrl({ variable: undefined, hostUri: '192.168.1.23:8081', plataforma: 'android' }), 'http://192.168.1.23:8000'));
   ok('development build (hostUri con esquema) también sirve', () =>
     assert.equal(resolverBaseUrl({ variable: '', hostUri: 'http://192.168.1.23:8081/x', plataforma: 'android' }), 'http://192.168.1.23:8000'));
   ok('variable vacía o con espacios cuenta como no definida', () =>
     assert.equal(resolverBaseUrl({ variable: '   ', hostUri: '192.168.1.23:8081', plataforma: 'ios' }), 'http://192.168.1.23:8000'));
-  ok('web usa localhost aunque haya hostUri', () =>
-    assert.equal(resolverBaseUrl({ variable: '', hostUri: '192.168.1.23:8081', plataforma: 'web' }), 'http://localhost:8000'));
+  ok('web usa loopback aunque haya hostUri', () =>
+    assert.equal(resolverBaseUrl({ variable: '', hostUri: '192.168.1.23:8081', plataforma: 'web' }), 'http://127.0.0.1:8000'));
   ok('el túnel de Expo NO se toma como backend', () =>
-    assert.equal(resolverBaseUrl({ variable: '', hostUri: 'abc-anonymous-8081.exp.direct:80', plataforma: 'android' }), 'http://localhost:8000'));
-  ok('sin hostUri (build de producción) cae a localhost', () =>
-    assert.equal(resolverBaseUrl({ variable: '', hostUri: null, plataforma: 'android' }), 'http://localhost:8000'));
+    assert.equal(resolverBaseUrl({ variable: '', hostUri: 'abc-anonymous-8081.exp.direct:80', plataforma: 'android' }), 'http://127.0.0.1:8000'));
+  ok('sin hostUri (build de producción) cae a loopback', () =>
+    assert.equal(resolverBaseUrl({ variable: '', hostUri: null, plataforma: 'android' }), 'http://127.0.0.1:8000'));
   ok('describirServidor no expone esquema ni ruta', () =>
     assert.equal(describirServidor('http://192.168.1.23:8000/api'), '192.168.1.23:8000'));
 
@@ -1031,6 +1041,275 @@ try {
     assert.deepEqual(P.buscarRecordatorios(lista, 'cancelá el recordatorio').map((r) => r.id), ['a', 'b', 'c']); // sin pista: el que llama pide elegir
     assert.deepEqual(P.buscarRecordatorios(lista, 'cancelá el recordatorio de la audiencia'), []);
     assert.deepEqual(P.buscarRecordatorios([...lista, REC({ id: 'x', estado: 'pasado', titulo: 'contrato viejo' })], 'contrato').map((r) => r.id), ['a']);
+  });
+
+  console.log('--- Ayuda: el asistente explica lo que puede hacer ---');
+  const ayudaDe = (texto, ctx = {}) => detectarIntencionLlamada(texto, { ...vacio, ...ctx });
+  const temaDe = (texto, doc = false) => detectarAyudaEnTexto(texto, { documentoActivo: doc });
+  const FRASES_GENERALES = [
+    '¿Qué podés hacer?', '¿Qué puedes hacer?', '¿Cómo te uso?', '¿Qué te puedo pedir?', '¿Cómo funciona esto?',
+    'Mostrame tus funciones', 'Mostrame tus funciones.', 'Decime todo lo que podés hacer', '¿En qué me podés ayudar?',
+    '¿Qué puedo hacer con vos?', 'ayuda', 'Ayuda', 'ayudame a usar el asistente', 'Ayudame a usar el asistente.',
+    'Hola, ¿qué podés hacer?', 'Dime todo lo que puedes hacer', '¿En qué me puedes ayudar?', '¿Cómo te utilizo?',
+    '¿Qué sabés hacer?', '¿Cuáles son tus funciones?', '¿Qué funciones tenés?', 'Necesito ayuda', '¿Qué puedo pedirte?',
+    '¿Qué cosas puedes hacer?', '¿Cómo funciona la aplicación?', '¿Cómo uso esta app?', '¿Con qué me podés ayudar?',
+  ];
+  ok('ayuda general: todas las formas de preguntar «¿qué podés hacer?»', () => {
+    for (const f of FRASES_GENERALES) {
+      assert.deepEqual(ayudaDe(f), { tipo: 'ayuda', tema: 'general' }, f);
+      assert.equal(temaDe(f), 'general', f);
+    }
+  });
+  ok('ayudas parciales: documentos, cámara, generar, reportes, recordatorios, comparar, compartir', () => {
+    const casos = [
+      ['¿Qué podés hacer con documentos?', 'documentos'], ['¿Qué puedes hacer con los documentos?', 'documentos'],
+      ['¿Qué puedo hacer con la cámara?', 'camara'], ['¿Cómo uso la cámara?', 'camara'], ['¿Cómo uso el escáner?', 'camara'],
+      ['¿Cómo escaneo un documento?', 'camara'], ['¿Cómo genero un contrato?', 'generacion'],
+      ['¿Cómo genero un contrato de préstamo?', 'generacion'], ['¿Cómo creo un recordatorio?', 'recordatorios'],
+      ['¿Cómo cancelo un recordatorio?', 'recordatorios'], ['¿Cómo funcionan los recordatorios?', 'recordatorios'],
+      ['¿Cómo comparo dos contratos?', 'comparacion'], ['¿Cómo comparo documentos?', 'comparacion'],
+      ['¿Cómo te comparto un PDF?', 'recibir'], ['¿Cómo te mando un contrato?', 'recibir'],
+      ['¿Cómo guardo un reporte?', 'salida'], ['¿Cómo comparto un documento generado?', 'salida'],
+      ['¿Cómo genero un reporte?', 'reportes'], ['¿Cómo subo un documento?', 'documentos'],
+      ['¿Cómo veo las fuentes?', 'paneles'], ['¿Cómo te interrumpo?', 'voz'],
+    ];
+    for (const [frase, tema] of casos) {
+      assert.deepEqual(ayudaDe(frase), { tipo: 'ayuda', tema }, frase);
+      assert.equal(temaDe(frase), tema, frase);
+    }
+  });
+  const LEGALES = [
+    '¿Qué puede hacer un acreedor si no le pagan?', '¿Qué puedo hacer si incumplen mi contrato?',
+    '¿Qué puede hacer el arrendatario?', '¿Qué puedo hacer si mi arrendador no devuelve la garantía?',
+    '¿Qué puede hacer el comprador si el vendedor no entrega la cosa?', '¿Qué puedes hacer si te despiden sin causa?',
+    '¿Qué puedo hacer con un contrato vencido?', '¿Y qué puedo hacer?', '¿Qué puedo hacer?', '¿Qué puedo hacer con este contrato?',
+    '¿Cómo funciona la mora?', '¿Cómo funcionan los contratos?', '¿Cómo funciona el recordatorio de pago en un contrato?',
+    '¿Cómo se genera un contrato válido?', '¿Cómo redacto una cláusula de rescisión?', '¿Cómo redacto un contrato de sociedad?',
+    '¿Cómo comparo ofertas de crédito?', '¿Cómo cancelo un contrato de alquiler?', '¿Cómo se comparte la herencia entre hermanos?',
+    '¿Qué significa recordatorio de pago?', '¿Cuál es el plazo para cancelar un contrato?', 'Ayuda legal gratuita en Bolivia',
+    '¿Cómo uso un poder notarial?', '¿Cómo analizo un contrato antes de firmarlo?', '¿Cómo analizo un contrato?',
+    '¿Cómo envío un documento al juzgado?', '¿Cómo hago un informe pericial?', '¿Cuáles son las funciones del fiduciario?',
+    '¿Cuáles son las opciones?', '¿Qué opciones hay para cobrar una deuda?', '¿Cómo me podés ayudar con mi divorcio?',
+    '¿En qué me podés ayudar con el desalojo de mi inquilino?', '¿Cómo subo una denuncia?', '¿Cómo comparto un bien con mi socio?',
+    '¿Qué documentos necesito para un divorcio?', '¿Qué es un reporte crediticio?', '¿Qué podés decirme sobre la mora?',
+    '¿Qué obligaciones tiene el arrendador?', 'Necesito ayuda con mi contrato de alquiler', '¿Cómo empiezo un juicio ejecutivo?',
+  ];
+  ok('una pregunta jurídica NUNCA es ayuda: sigue siendo consulta', () => {
+    for (const f of LEGALES) {
+      assert.equal(temaDe(f), null, `ayuda? ${f}`);
+      assert.equal(ayudaDe(f).tipo, 'consulta', f);
+      // Con un documento activo, «¿qué puedo hacer con este contrato?» pasa a hablar del documento (es lo único que cambia).
+      if (f !== '¿Qué puedo hacer con este contrato?') assert.notEqual(ayudaDe(f, { documentoActivo: true }).tipo, 'ayuda', `${f} (con documento)`);
+    }
+  });
+  ok('«¿qué puedo hacer con este documento?»: habla del documento activo; sin documento es una consulta', () => {
+    for (const f of ['¿Qué puedo hacer con este documento?', '¿Qué puedes hacer con este contrato?', '¿Qué podés hacer con el documento?',
+      '¿Qué puedo pedirte sobre este documento?', '¿Qué se puede hacer con este documento?']) {
+      assert.deepEqual(ayudaDe(f, { documentoActivo: true }), { tipo: 'ayuda', tema: 'documento_activo' }, f);
+    }
+    // Sin documento: en segunda persona le habla al asistente (ayuda de documentos); en primera es jurídica.
+    assert.deepEqual(ayudaDe('¿Qué podés hacer con este contrato?'), { tipo: 'ayuda', tema: 'documentos' });
+    assert.equal(ayudaDe('¿Qué puedo hacer con este documento?').tipo, 'consulta');
+    assert.equal(ayudaDe('¿Qué se puede hacer con este contrato?').tipo, 'consulta');
+  });
+  ok('la ayuda no le roba nada al resto del enrutador: las órdenes de siempre siguen igual', () => {
+    const igual = [
+      ['Generame un contrato de préstamo', 'generar_documento'], ['Compará este contrato con otro', 'comparar'],
+      ['Quiero escanear un contrato', 'escanear'], ['Analizá este contrato', 'subir_documento'],
+      ['Recordame revisar este contrato mañana', 'recordatorio'], ['¿Qué recordatorios tengo?', 'recordatorio'],
+      ['Generame un reporte', 'reporte'], ['Mostrame las fuentes', 'mostrar'], ['Quiero subir un contrato', 'subir_documento'],
+      ['¿Qué es la mora?', 'consulta'], ['Explicame qué es la responsabilidad civil', 'consulta'],
+      ['¿Cuál es el monto?', 'consulta'], ['¿Cuál es el principal riesgo?', 'consulta'],
+    ];
+    for (const [f, t] of igual) assert.equal(ayudaDe(f).tipo, t, f);
+  });
+  ok('«sí» y «no» de un recordatorio pendiente no se confunden con la ayuda', () => {
+    assert.equal(ayudaDe('sí', { recordatorio: 'confirmacion' }).tipo, 'recordatorio_respuesta');
+    assert.equal(ayudaDe('no', { recordatorio: 'confirmacion' }).tipo, 'recordatorio_respuesta');
+    assert.equal(ayudaDe('sí').tipo, 'consulta');
+    assert.equal(ayudaDe('ayuda', { recordatorio: 'confirmacion' }).tipo, 'ayuda'); // la ayuda es una pregunta nueva
+  });
+  ok('«Usá la cámara» abre el escáner (antes solo entendía «usar» y «abrir»)', () => {
+    for (const f of ['Usá la cámara', 'Usa la cámara', 'Utilizá la cámara', 'Abrí la cámara', 'Quiero usar la cámara']) {
+      assert.equal(ayudaDe(f).tipo, 'escanear', f);
+    }
+  });
+
+  // ── El catálogo: una sola fuente de verdad, y que todo lo que anuncia funcione ──────────────────
+  const CATALOGO = cargar('./config/capacidadesAsistente');
+  const AYUDA = cargar('./services/llamada/ayudaAsistente');
+  const D_ANDROID = { plataforma: 'android', llamada: true, camara: true, recibir: true, salida: true, recordatorios: true };
+  const D_ANDROID_VIEJO = { ...D_ANDROID, recordatorios: false };   // APK anterior a las notificaciones
+  const D_IOS = { plataforma: 'ios', llamada: true, camara: false, recibir: false, salida: false, recordatorios: false };
+  const D_WEB = { plataforma: 'web', llamada: false, camara: false, recibir: false, salida: false, recordatorios: false };
+  const CTX_AYUDA = { documentoActivo: false, analisis: false, comparacion: false, generado: false, reporte: false };
+  const idsVisibles = (d) => AYUDA.capacidadesDisponibles(d).map((c) => c.id);
+
+  ok('catálogo: 14 capacidades con id único, descripción y un ejemplo al menos', () => {
+    const ids = CATALOGO.CAPACIDADES.map((c) => c.id);
+    assert.equal(ids.length, 14);
+    assert.equal(new Set(ids).size, 14);
+    for (const c of CATALOGO.CAPACIDADES) {
+      assert.ok(c.titulo && c.descripcion, c.id);
+      assert.ok(c.ejemplos.length > 0, c.id);
+      assert.ok(Array.isArray(c.temas), c.id);
+    }
+  });
+  ok('CADA ejemplo del catálogo es entendido por el enrutador como se anuncia (no se promete lo que no anda)', () => {
+    let comprobados = 0;
+    for (const c of CATALOGO.CAPACIDADES) {
+      for (const e of c.ejemplos) {
+        if (!e.intencion) continue;
+        assert.equal(ayudaDe(e.texto, e.contexto ?? {}).tipo, e.intencion, `${c.id}: «${e.texto}»`);
+        comprobados += 1;
+      }
+    }
+    assert.ok(comprobados >= 40, `solo ${comprobados} ejemplos comprobados`);
+  });
+  ok('los ejemplos que necesitan contexto no funcionan sin él (por eso el catálogo lo declara)', () => {
+    assert.notEqual(ayudaDe('Cambiá el plazo a 18 meses').tipo, 'modificar_generado'); // sin documento generado no hay a qué aplicarlo
+    assert.equal(ayudaDe('Guardá este documento').tipo, 'consulta');                     // sin nada que guardar
+    assert.equal(ayudaDe('Mostralo como gráfico').tipo, 'consulta');                     // sin reporte a la vista
+  });
+  ok('las frases que la ayuda destaca según el contexto existen en el catálogo', () => {
+    for (const s of AYUDA.SUGERENCIAS_CATALOGADAS) {
+      const c = CATALOGO.CAPACIDADES.find((x) => x.id === s.capacidad);
+      assert.ok(c, s.capacidad);
+      assert.ok(c.ejemplos.some((e) => e.texto === s.texto), `${s.capacidad}: «${s.texto}»`);
+    }
+  });
+
+  ok('plataforma: Android con todo muestra las 14; iOS, sin cámara, archivos ni recordatorios', () => {
+    assert.equal(idsVisibles(D_ANDROID).length, 14);
+    const ios = idsVisibles(D_IOS);
+    for (const fuera of ['camara', 'clausula', 'recibir', 'salida', 'recordatorios']) assert.ok(!ios.includes(fuera), fuera);
+    for (const dentro of ['consulta', 'documentos', 'voz', 'paneles', 'generacion', 'reportes', 'comparacion']) assert.ok(ios.includes(dentro), dentro);
+  });
+  ok('build vieja de Android (sin módulo de notificaciones): NO anuncia recordatorios, pero sí todo lo demás', () => {
+    const ids = idsVisibles(D_ANDROID_VIEJO);
+    assert.ok(!ids.includes('recordatorios'));
+    assert.equal(ids.length, 13);
+    const r = AYUDA.explicarAyuda('recordatorios', CTX_AYUDA, D_ANDROID_VIEJO);
+    assert.deepEqual(r.capacidades, []);
+    assert.match(r.habla, /recordatorios solo están disponibles/i);
+    assert.ok(!/recordatorio/i.test(AYUDA.explicarAyuda('general', CTX_AYUDA, D_ANDROID_VIEJO).habla));
+  });
+  ok('web: solo lo que existe (consultas, documentos, comparar, generar, reportes) y nada de llamada, cámara ni recordatorios', () => {
+    assert.deepEqual(idsVisibles(D_WEB), ['consulta', 'documentos', 'analisis', 'comparacion', 'generacion', 'reportes', 'salida']);
+    const texto = JSON.stringify(AYUDA.capacidadesDisponibles(D_WEB)) + AYUDA.explicarAyuda('general', CTX_AYUDA, D_WEB).habla;
+    for (const prohibida of [/c[aá]mara/i, /escane/i, /recordatorio/i, /llamada/i, /micr[oó]fono/i, /whatsapp/i, /compart[ií]/i, /Usá/i]) {
+      assert.ok(!prohibida.test(texto), `web menciona ${prohibida}`);
+    }
+    // En web ningún ejemplo es una orden hablada (no hay llamada): solo preguntas jurídicas.
+    for (const c of AYUDA.capacidadesDisponibles(D_WEB)) {
+      for (const e of c.ejemplos) assert.equal(ayudaDe(e.texto).tipo, 'consulta', e.texto);
+    }
+    for (const tema of ['camara', 'recibir', 'recordatorios', 'voz']) {
+      assert.deepEqual(AYUDA.explicarAyuda(tema, CTX_AYUDA, D_WEB).capacidades, [], tema);
+    }
+  });
+
+  ok('respuesta hablada: corta, natural, sin jerga técnica y con la invitación a mirar la pantalla', () => {
+    const r = AYUDA.explicarAyuda('general', CTX_AYUDA, D_ANDROID);
+    const palabras = r.habla.split(/\s+/).length;
+    assert.ok(palabras <= 60, `${palabras} palabras`);
+    assert.match(r.habla, /^Puedo responder consultas jurídicas, analizar documentos, escanear contratos con la cámara/);
+    assert.match(r.habla, /crear recordatorios\./);
+    assert.match(r.habla, /Te mostré todas mis funciones en pantalla/);
+    assert.match(r.habla, /hablando normalmente/);
+    assert.ok(!/[•\n]/.test(r.habla));
+    const todo = JSON.stringify(AYUDA.capacidadesDisponibles(D_ANDROID)) + r.habla;
+    for (const jerga of [/ML Kit/i, /Qwen/i, /\bSTT\b/, /\bTTS\b/, /endpoint/i, /\bAPI\b/, /backend/i, /\bExpo\b/, /Ollama/i, /\bRAG\b/, /m[oó]dulo/i, /servidor/i]) {
+      assert.ok(!jerga.test(todo), `jerga: ${jerga}`);
+    }
+  });
+  ok('panel: detalle completo en el orden del catálogo, cada capacidad con nombre, descripción y frases', () => {
+    const r = AYUDA.explicarAyuda('general', CTX_AYUDA, D_ANDROID);
+    assert.equal(r.titulo, '¿Qué puedo hacer?');
+    assert.deepEqual(r.capacidades.map((c) => c.id),
+      ['consulta', 'documentos', 'camara', 'clausula', 'analisis', 'comparacion', 'generacion', 'reportes', 'salida', 'recibir', 'recordatorios', 'voz', 'paneles', 'encadenar']);
+    for (const c of r.capacidades) { assert.ok(c.titulo && c.descripcion && c.ejemplos.length > 0, c.id); }
+  });
+  ok('el asistente jurídico no reemplaza a un profesional: se dice, y el OCR se explica sin tecnología', () => {
+    const cons = CATALOGO.CAPACIDADES.find((c) => c.id === 'consulta');
+    assert.match(cons.descripcion, /no reemplazo el asesoramiento de un profesional/);
+    const cam = CATALOGO.CAPACIDADES.find((c) => c.id === 'camara');
+    assert.match(cam.descripcion, /leo el texto de lo que fotografíes/);
+    assert.match(cam.detalles.join(' '), /en tu teléfono/);
+    assert.match(cam.detalles.join(' '), /repetir una, rotarla, eliminarla o cambiarle el orden/);
+  });
+  ok('lo que NO existe no se promete: generar solo tres tipos, recordatorios sin plazos complejos, sin una app concreta', () => {
+    const gen = CATALOGO.CAPACIDADES.find((c) => c.id === 'generacion');
+    assert.match(gen.descripcion, /compraventa, de arrendamiento o de préstamo/);
+    assert.match(gen.detalles.join(' '), /Solo redacto esos tres tipos/);
+    const rec = CATALOGO.CAPACIDADES.find((c) => c.id === 'recordatorios');
+    assert.match(rec.detalles.join(' '), /No calculo plazos jurídicos complejos/);
+    assert.match(rec.descripcion, /nada se programa sin tu confirmación/);
+    const rc = CATALOGO.CAPACIDADES.find((c) => c.id === 'recibir');
+    assert.match(rc.descripcion, /no lo hago sin que me lo confirmes/);
+    const sal = CATALOGO.CAPACIDADES.find((c) => c.id === 'salida');
+    assert.match(sal.descripcion, /aplicaciones que tengas instaladas/);
+  });
+
+  ok('ayudas parciales: solo lo del tema, con explicación hablada breve', () => {
+    const casos = [
+      ['documentos', ['documentos', 'analisis']], ['camara', ['camara', 'clausula']], ['generacion', ['generacion']],
+      ['reportes', ['reportes']], ['comparacion', ['comparacion']], ['recordatorios', ['recordatorios']],
+      ['recibir', ['recibir']], ['salida', ['salida']], ['archivos', ['salida', 'recibir']], ['voz', ['voz']], ['paneles', ['paneles']],
+    ];
+    for (const [tema, ids] of casos) {
+      const r = AYUDA.explicarAyuda(tema, CTX_AYUDA, D_ANDROID);
+      assert.deepEqual(r.capacidades.map((c) => c.id), ids, tema);
+      assert.ok(r.habla.split(/\s+/).length <= 95, `${tema}: ${r.habla.split(/\s+/).length} palabras`);
+      assert.match(r.habla, /Te dejé los detalles en pantalla\.$/, tema);
+    }
+    const gen = AYUDA.explicarAyuda('generacion', CTX_AYUDA, D_ANDROID);
+    assert.match(gen.habla, /Generame un contrato de préstamo/);
+    assert.match(gen.habla, /Te voy a preguntar lo que falte/);
+    const recib = AYUDA.explicarAyuda('recibir', CTX_AYUDA, D_ANDROID);
+    assert.match(recib.habla, /WhatsApp/); assert.match(recib.habla, /Asistente Jurídico/);
+  });
+  ok('documento activo: explica qué hacer CON ese documento; sin documento cae en ayuda de documentos', () => {
+    const conDoc = AYUDA.explicarAyuda('documento_activo', { ...CTX_AYUDA, documentoActivo: true }, D_ANDROID);
+    assert.equal(conDoc.tema, 'documento_activo');
+    assert.match(conDoc.habla, /^Con este documento puedo analizarlo y responder tus preguntas sobre él, mostrarte sus cláusulas, sus riesgos y sus datos principales, compararlo con otro documento y crear recordatorios con sus fechas\./);
+    assert.deepEqual(conDoc.capacidades.map((c) => c.id), ['documentos', 'analisis', 'comparacion', 'recordatorios']);
+    assert.deepEqual(conDoc.contextuales.map((e) => e.texto), ['Analizá este contrato.']);
+    const sinDoc = AYUDA.explicarAyuda('documento_activo', CTX_AYUDA, D_ANDROID);
+    assert.equal(sinDoc.tema, 'documentos');
+    // Con la build vieja no se ofrece crear recordatorios con las fechas del documento.
+    assert.ok(!/recordatorio/i.test(AYUDA.explicarAyuda('documento_activo', { ...CTX_AYUDA, documentoActivo: true }, D_ANDROID_VIEJO).habla));
+  });
+  ok('contexto: destaca lo relacionado (documento analizado, generado, reporte) sin esconder el resto', () => {
+    const c = (extra) => AYUDA.sugerenciasContextuales({ ...CTX_AYUDA, ...extra }, D_ANDROID).map((e) => e.texto);
+    assert.deepEqual(c({}), []);
+    assert.deepEqual(c({ documentoActivo: true }), ['Analizá este contrato.']);
+    assert.deepEqual(c({ documentoActivo: true, analisis: true }),
+      ['Mostrame los riesgos.', 'Compará este contrato con otro.', 'Recordame revisar este contrato mañana.']);
+    assert.deepEqual(c({ generado: true }), ['Cambiá el plazo a 18 meses.', 'Guardá este documento.']);
+    assert.deepEqual(c({ reporte: true }), ['Mostralo como gráfico.', 'Compartí el reporte.']);
+    assert.deepEqual(c({ comparacion: true }), ['Mostrame las diferencias.']);
+    // Sin recordatorios ni guardado, esas frases no se destacan.
+    assert.deepEqual(AYUDA.sugerenciasContextuales({ ...CTX_AYUDA, generado: true }, D_IOS).map((e) => e.texto), ['Cambiá el plazo a 18 meses.']);
+    assert.deepEqual(AYUDA.sugerenciasContextuales({ ...CTX_AYUDA, documentoActivo: true, analisis: true }, D_ANDROID_VIEJO).map((e) => e.texto),
+      ['Mostrame los riesgos.', 'Compará este contrato con otro.']);
+    assert.deepEqual(AYUDA.sugerenciasContextuales({ ...CTX_AYUDA, documentoActivo: true }, D_WEB), []);
+    // «Decime todo lo que podés hacer» sigue mostrándolo TODO aunque haya contexto.
+    assert.equal(AYUDA.explicarAyuda('general', { ...CTX_AYUDA, generado: true }, D_ANDROID).capacidades.length, 14);
+  });
+  ok('chat: la misma pregunta escrita obtiene la ayuda; una consulta escrita, no', () => {
+    assert.equal(temaDe('¿Qué podés hacer?'), 'general');
+    assert.equal(temaDe('  ¿QUÉ PUEDES HACER?  '), 'general');
+    assert.equal(temaDe('¿Qué puedo hacer con este documento?', true), 'documento_activo');
+    assert.equal(temaDe('¿Qué puede hacer el acreedor si no le pagan?'), null);
+    assert.equal(temaDe(''), null);
+    const web = AYUDA.explicarAyuda('general', CTX_AYUDA, D_WEB);
+    assert.match(AYUDA.notaDeChat(D_WEB), /versión web/);
+    assert.match(AYUDA.notaDeChat(D_ANDROID), /durante una llamada/);
+    assert.ok(web.capacidades.length > 0 && web.capacidades.length < 14);
+  });
+  ok('aPlano sigue igual tras moverlo a intencionBase', () => {
+    assert.equal(aPlano('¿Qué PODÉS hacer?'), 'que podes hacer');
   });
 
   console.log(`\n${total} pruebas OK`);

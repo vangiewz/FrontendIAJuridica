@@ -14,11 +14,13 @@ import { EstadoProcesando } from '../../components/consultas/EstadoProcesando';
 import { RespuestaChat } from '../../components/consultas/RespuestaChat';
 import { SelectorDocumento } from '../../components/consultas/SelectorDocumento';
 import { PanelVoz } from '../../components/voz/PanelVoz';
+import { AyudaEnChat } from '../../components/ayuda/AyudaEnChat';
 import { useServidor } from '../../controllers/conexion/useServidor';
 import { Intercambio, useAsistente } from '../../controllers/consultas/useAsistente';
 import { useDictado } from '../../controllers/voz/useDictado';
 import { useHablando } from '../../controllers/voz/useHablando';
 import { detener as detenerLectura } from '../../services/voz/lectura';
+import { detectarAyudaEnTexto } from '../../services/llamada/intencionAyuda';
 import { anchos, colores, espaciado, radios, tipografia } from '../../theme';
 
 /** El dictado y la lectura usan el motor nativo del teléfono; en web no se ofrecen. */
@@ -34,7 +36,7 @@ const unirTexto = (previo: string, dictado: string) => {
 export function AsistenteView() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { documento, elegirDocumento, intercambios, enviando, preguntar, reintentar,
+  const { documento, elegirDocumento, intercambios, enviando, preguntar, responderAyuda, reintentar,
     limpiarConversacion } = useAsistente();
   const servidor = useServidor();
   const [texto, setTexto] = useState('');
@@ -78,6 +80,9 @@ export function AsistenteView() {
     setDictado(false);
     cercaDelFinal.current = true;
     setLejosDelFinal(false);
+    // «¿Qué podés hacer?» es una pregunta sobre la app: se responde acá, sin consulta ni servidor.
+    const tema = detectarAyudaEnTexto(pendiente, { documentoActivo: documento !== null });
+    if (tema) { responderAyuda(pendiente, tema); return; }
     const aceptado = await preguntar(pendiente);
     if (!aceptado) setTexto(pendiente);
   };
@@ -257,6 +262,7 @@ function Turno({ intercambio, onReintentar, ocupado }: {
   const { consulta } = intercambio;
   const procesando = !consulta || consulta.estado === 'procesando';
   const tiempo = intercambio.duracionMs;
+  const ayuda = intercambio.ayuda ?? null;
   return (
     <View style={styles.turno}>
       <View style={styles.pregunta}>
@@ -265,7 +271,9 @@ function Turno({ intercambio, onReintentar, ocupado }: {
           <Text style={styles.preguntaDocumento}>{intercambio.documentoNombre}</Text>
         ) : null}
       </View>
-      {intercambio.error ? (
+      {ayuda ? (
+        <AyudaEnChat tema={ayuda} conDocumento={intercambio.documentoNombre !== null} />
+      ) : intercambio.error ? (
         <View style={styles.errorCaja}>
           <Icono nombre="alert-circle-outline" tamano={22} color={colores.alerta} />
           <Text style={styles.error}>{intercambio.error}</Text>

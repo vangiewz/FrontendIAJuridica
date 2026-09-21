@@ -23,7 +23,8 @@
         "android.permission.READ_EXTERNAL_STORAGE",
         "android.permission.WRITE_EXTERNAL_STORAGE",
         "android.permission.SYSTEM_ALERT_WINDOW"
-      ]
+      ],
+      "versionCode": 1
     },
     "web": {
       "favicon": "./assets/favicon.png",
@@ -87,7 +88,8 @@
           "icon": "./assets/android-icon-monochrome.png",
           "color": "#1B6B4A"
         }
-      ]
+      ],
+      "./plugins/withReleaseSigning"
     ]
   }
 }

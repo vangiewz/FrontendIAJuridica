@@ -11,3 +11,13 @@ export const DOC = '(?:documento|contrato|archivo|pdf|word|docx|acuerdo|convenio
 export const DET = '(?:(?:el|la|los|las|mi|mis|este|esta|estos|estas|ese|esa|un|una|otro|otra|tu)\\s+)?';
 
 export const re = (cuerpo: string) => new RegExp(cuerpo);
+
+/** Minúsculas, sin acentos ni signos: «Compará» y «compara» son la misma frase. */
+export function aPlano(texto: string): string {
+  return (texto || '')
+    .toLowerCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/[¿?¡!.,;:«»"“”()]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}

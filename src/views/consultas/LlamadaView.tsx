@@ -232,6 +232,10 @@ function LlamadaActiva() {
             // Abre el panel DENTRO de la llamada. No navega, no detiene la voz.
             <Enlace icono="document-text-outline" texto="Ver respuesta y fuentes" onPress={llamada.verRespuesta} />
           ) : null}
+          {/* Una ayuda discreta: abre el panel «¿Qué puedo hacer?» (en silencio, sin pisar la voz). */}
+          {!conPanel ? (
+            <Enlace icono="help-circle-outline" texto="¿Qué puedo pedirte?" onPress={() => acciones.ayuda.abrir()} />
+          ) : null}
         </View>
       </View>
 

@@ -8,7 +8,7 @@ import {
 import { guardarRecordatorios, leerRecordatorios } from '../../services/recordatorios/almacen';
 import {
   alTocar, cancelarIds, configurarManejador, consultarPermiso, EstadoPermiso, idsProgramados, limpiarUltimoToque,
-  pedirPermiso as pedirPermisoSistema, prepararCanal, programar as programarEnAndroid, rellenarMensual,
+  NOTIFICACIONES_DISPONIBLES, pedirPermiso as pedirPermisoSistema, prepararCanal, programar as programarEnAndroid, rellenarMensual,
   ToqueDeNotificacion, ultimoToque,
 } from '../../services/recordatorios/notificaciones';
 
@@ -52,7 +52,7 @@ interface Valor {
   consumirToque: (clave: string) => void;
 }
 
-const noDisponible = () => Promise.reject({ mensaje: 'Los recordatorios solo están disponibles en la app del celular.', codigo: 'NO_DISPONIBLE', estado: 0 });
+const noDisponible = () => Promise.reject({ mensaje: 'Los recordatorios no están disponibles en esta versión de la app. Instala la versión más reciente en el celular.', codigo: 'NO_DISPONIBLE', estado: 0 });
 const VACIO: Valor = {
   disponible: false, cargando: false, recordatorios: [], toque: null,
   comprobarPermiso: noDisponible, pedirPermiso: noDisponible, programar: noDisponible,
@@ -66,7 +66,7 @@ const MARGEN_MS = 5000;
 const FECHA_PASADA = { mensaje: 'Esa fecha ya pasó. Elige una fecha futura.', codigo: 'FECHA_PASADA', estado: 0 };
 
 export function RecordatoriosProvider({ children }: { children: React.ReactNode }) {
-  return Platform.OS === 'android'
+  return Platform.OS === 'android' && NOTIFICACIONES_DISPONIBLES
     ? <ProveedorAndroid>{children}</ProveedorAndroid>
     : <Contexto.Provider value={VACIO}>{children}</Contexto.Provider>;
 }

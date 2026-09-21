@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View,
 } from 'react-native';
@@ -10,9 +10,12 @@ import { TipoDocumentoAyuda } from '../../models/ayuda';
 import { ResumenInterpretacion } from '../../components/generacion/ResumenInterpretacion';
 import { useGeneracion } from '../../controllers/generacion/useGeneracion';
 import {
-  ConflictoDato, InterpretacionResponse, Plantilla,
+  ConflictoDato, InterpretacionResponse, Plantilla, ProblemaCampo,
 } from '../../models/generacion';
 import { anchos, colores, espaciado, radios, tipografia } from '../../theme';
+
+/** Gris oscuro: se ve como guía, sin parecerse al texto que escribió el usuario. */
+const COLOR_EJEMPLO = '#7D786F';
 
 const EJEMPLO_PROMPT =
   'Ejemplo: Generame un contrato de préstamo entre Juan Pérez CI 1234567 y María Gómez ' +
@@ -32,7 +35,10 @@ const EJEMPLO_PROMPT =
 export function GeneracionView() {
   const router = useRouter();
   const { abrirAyuda, catalogo: catalogoAyuda, establecerTipoDocumento } = useAyuda();
-  const { plantillas, cargando, interpretando, error, interpretar, generar } = useGeneracion();
+  const {
+    plantillas, cargando, interpretando, error, problemas, interpretar, generar, setProblemas, quitarProblema,
+  } = useGeneracion();
+  const scroll = useRef<ScrollView>(null);
   const [tipo, setTipo] = useState<string | null>(null);
   const [datos, setDatos] = useState<Record<string, string>>({});
   const [prompt, setPrompt] = useState('');
@@ -85,13 +91,19 @@ export function GeneracionView() {
     );
     setInterpretacion(null);
     setConflictos([]);
+    setProblemas([]);
   };
 
   const crear = async () => {
     if (!plantilla) return;
     const id = await generar(plantilla.tipo_documento, datos);
-    if (id) router.push(`/(app)/documento-generado?id=${id}`);
+    if (id) { router.push(`/(app)/documento-generado?id=${id}`); return; }
+    // Si falló, el mensaje y los campos a corregir están arriba: se lleva al usuario hasta ahí.
+    scroll.current?.scrollTo({ y: 0, animated: true });
   };
+
+  const problemaDe = (clave: string): ProblemaCampo | undefined => problemas.find((p) => p.clave === clave);
+  const hayErrores = problemas.some((p) => p.nivel === 'error');
 
   // Los pendientes se recalculan sobre lo que hay en el formulario ahora mismo, no
   // sobre la respuesta de la IA: el usuario pudo escribir o borrar despues.
@@ -112,7 +124,7 @@ export function GeneracionView() {
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+    <ScrollView ref={scroll} contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
       <View style={styles.contenedor}>
         <Text style={styles.titulo}>Generar un documento</Text>
         <Text style={styles.nota}>
@@ -122,6 +134,22 @@ export function GeneracionView() {
         </Text>
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
+
+        {problemas.length > 0 ? (
+          <View style={[styles.problemas, hayErrores ? styles.problemasError : styles.problemasAviso]}
+            accessibilityLiveRegion="polite">
+            <Text style={styles.problemasTitulo}>
+              {hayErrores ? 'Corregí estos campos para poder generar' : 'Conviene revisar estos campos'}
+            </Text>
+            {problemas.map((p) => (
+              <View key={p.clave} style={styles.problemaFila}>
+                <Text style={styles.problemaEtiqueta}>{p.nivel === 'error' ? '✖' : '⚠'} {p.etiqueta}</Text>
+                <Text style={styles.problemaTexto}>{p.mensaje}</Text>
+                {p.ejemplo ? <Text style={styles.problemaEjemplo}>Ejemplo: {p.ejemplo}</Text> : null}
+              </View>
+            ))}
+          </View>
+        ) : null}
 
         <View style={styles.bloque}>
           <Text style={styles.subtitulo}>Describí el documento que querés generar</Text>
@@ -187,6 +215,7 @@ export function GeneracionView() {
               {plantilla.campos.map((campo) => {
                 const valor = datos[campo.clave] ?? '';
                 const vacio = !valor.trim();
+                const problema = problemaDe(campo.clave);
                 return (
                   <View key={campo.clave} style={styles.campo}>
                     <View style={styles.etiquetaFila}>
@@ -203,12 +232,28 @@ export function GeneracionView() {
                     ) : null}
                     </View>
                     <TextInput
-                      style={[styles.input, vacio && campo.obligatorio && styles.inputPendiente]}
+                      style={[
+                        styles.input,
+                        vacio && campo.obligatorio && styles.inputPendiente,
+                        problema?.nivel === 'aviso' && styles.inputAviso,
+                        problema?.nivel === 'error' && styles.inputProblema,
+                      ]}
                       value={valor}
-                      onChangeText={(nuevo) => setDatos({ ...datos, [campo.clave]: nuevo })}
-                      placeholder={vacio ? 'Pendiente' : ''}
-                      placeholderTextColor={colores.tintaSuave}
+                      onChangeText={(nuevo) => {
+                        setDatos({ ...datos, [campo.clave]: nuevo });
+                        if (problema) quitarProblema(campo.clave);
+                      }}
+                      // El ejemplo en gris le dice al usuario QUÉ escribir y CÓMO; desaparece al escribir.
+                      placeholder={campo.ejemplo || (campo.obligatorio ? 'Pendiente' : 'Opcional')}
+                      placeholderTextColor={COLOR_EJEMPLO}
+                      accessibilityLabel={campo.etiqueta}
+                      accessibilityHint={campo.ejemplo}
                     />
+                    {problema ? (
+                      <Text style={[styles.textoProblema, problema.nivel === 'aviso' && styles.textoAviso]}>
+                        {problema.nivel === 'error' ? '✖' : '⚠'} {problema.mensaje}
+                      </Text>
+                    ) : null}
                   </View>
                 );
               })}
@@ -349,6 +394,50 @@ const styles = StyleSheet.create({
   },
   // Un obligatorio vacio se ve distinto: que falte es informacion, no un descuido oculto.
   inputPendiente: { borderColor: colores.destacado, borderStyle: 'dashed' },
+  // Un campo con algo que hay que corregir (rojo) o revisar (naranja): el motivo va debajo.
+  inputProblema: { borderColor: colores.alerta, borderWidth: 2 },
+  inputAviso: { borderColor: colores.destacado, borderWidth: 2 },
+  textoProblema: {
+    fontFamily: tipografia.familias.cuerpo,
+    fontSize: tipografia.escala.nota,
+    color: colores.alerta,
+    lineHeight: 19,
+    marginTop: -espaciado.xs,
+    marginBottom: espaciado.s,
+  },
+  textoAviso: { color: '#8A5A00' },
+  problemas: {
+    borderWidth: 1,
+    borderRadius: radios.m,
+    padding: espaciado.m,
+    marginBottom: espaciado.m,
+    gap: espaciado.s,
+  },
+  problemasError: { borderColor: colores.alerta, backgroundColor: '#FDECEE' },
+  problemasAviso: { borderColor: colores.destacado, backgroundColor: '#FFF6E5' },
+  problemasTitulo: {
+    fontFamily: tipografia.familias.cuerpoFuerte,
+    fontSize: tipografia.escala.cuerpo,
+    color: colores.tinta,
+  },
+  problemaFila: { gap: 2 },
+  problemaEtiqueta: {
+    fontFamily: tipografia.familias.cuerpoFuerte,
+    fontSize: tipografia.escala.nota,
+    color: colores.tinta,
+  },
+  problemaTexto: {
+    fontFamily: tipografia.familias.cuerpo,
+    fontSize: tipografia.escala.nota,
+    color: colores.tinta,
+    lineHeight: 20,
+  },
+  problemaEjemplo: {
+    fontFamily: tipografia.familias.cuerpo,
+    fontSize: tipografia.escala.nota,
+    color: colores.tintaSuave,
+    lineHeight: 20,
+  },
   campoGrande: {
     borderWidth: 1,
     borderColor: colores.linea,

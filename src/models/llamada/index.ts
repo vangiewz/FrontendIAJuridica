@@ -1,3 +1,4 @@
+import type { TemaAyuda } from '../../config/capacidadesAsistente';
 import { TipoDocumento } from '../documentos';
 import { CampoPendiente } from '../generacion';
 
@@ -31,6 +32,8 @@ export type ContenidoPanel =
   | { tipo: 'recordatorio' }
   /** La lista de recordatorios de este teléfono. */
   | { tipo: 'recordatorios' }
+  /** «¿Qué puedo hacer?»: el catálogo de capacidades (todo, o solo un tema). */
+  | { tipo: 'ayuda'; tema: TemaAyuda }
   | { tipo: 'error'; mensaje: string; puedeReintentar: boolean };
 
 export type TipoPanel = ContenidoPanel['tipo'];

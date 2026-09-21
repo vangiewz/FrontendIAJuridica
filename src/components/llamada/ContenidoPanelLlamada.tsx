@@ -3,6 +3,8 @@ import { StyleSheet, Text, View } from 'react-native';
 import type { useLlamada } from '../../controllers/consultas/useLlamada';
 import { ContenidoPanel } from '../../models/llamada';
 import { ContenidoArchivo } from './ContenidoArchivo';
+import { ContenidoAyuda } from './ContenidoAyuda';
+import { TITULO_DE_TEMA } from '../../services/llamada/ayudaAsistente';
 import { ContenidoArticulo } from './ContenidoArticulo';
 import { ContenidoBorrador } from './ContenidoBorrador';
 import { ContenidoClausula } from './ContenidoClausula';
@@ -41,6 +43,7 @@ export function tituloDePanel(contenido: ContenidoPanel | null, llamada: Llamada
     case 'clausula': return 'Cláusula fotografiada';
     case 'recordatorio': return 'Recordatorio';
     case 'recordatorios': return 'Recordatorios';
+    case 'ayuda': return TITULO_DE_TEMA[contenido.tema === 'documento_activo' && !llamada.acciones.ficha ? 'documentos' : contenido.tema];
     case 'recibido':
       return llamada.acciones.recibidos.recibidos.length + llamada.acciones.recibidos.fallidos.length > 1 ? 'Archivos recibidos' : 'Archivo recibido';
     case 'error': return 'No pude completarlo';
@@ -148,6 +151,10 @@ export function ContenidoPanelLlamada({ contenido, llamada }: { contenido: Conte
 
     case 'recordatorios':
       return <ContenidoRecordatorios r={acciones.recordatorios} />;
+
+    case 'ayuda':
+      return <ContenidoAyuda tema={contenido.tema} acciones={acciones}
+        alVerTodo={() => panel.reemplazar({ tipo: 'ayuda', tema: 'general' })} />;
 
     case 'error':
       return (
