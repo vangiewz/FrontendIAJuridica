@@ -1,24 +1,27 @@
-import { useState } from 'react';
-import { ItemHistorial } from '../../models/consultas';
+import { useQuery } from '@tanstack/react-query';
+import { claves } from '../../services/persistencia/claves';
 import { listarHistorial } from '../../services/consultas';
+import { esErrorDeTransporte } from '../../services/api';
 
 export function useHistorial() {
-  const [historial, setHistorial] = useState<ItemHistorial[]>([]);
-  const [cargando, setCargando] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { data, isLoading, error, refetch } = useQuery({
+    queryKey: claves.historial(),
+    queryFn: listarHistorial,
+  });
 
-  const cargar = async () => {
-    setCargando(true);
-    setError(null);
-    try {
-      const data = await listarHistorial();
-      setHistorial(data);
-    } catch (e: any) {
-      setError(e.mensaje || 'Error al cargar el historial');
-    } finally {
-      setCargando(false);
+  const historial = data || [];
+  
+  let mensajeError: string | null = null;
+  if (error) {
+    if (!esErrorDeTransporte(error) || historial.length === 0) {
+      mensajeError = (error as any).mensaje || 'Error al cargar el historial';
     }
-  };
+  }
 
-  return { historial, cargando, error, cargar };
+  return {
+    historial,
+    cargando: isLoading,
+    error: mensajeError,
+    cargar: async () => { await refetch(); }
+  };
 }

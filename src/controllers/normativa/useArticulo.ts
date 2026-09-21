@@ -1,42 +1,30 @@
-import { useState, useEffect } from 'react';
-import { ArticuloDetalle } from '../../models/normativa';
+import { useQuery } from '@tanstack/react-query';
 import { obtenerArticulo } from '../../services/normativa';
+import { claves } from '../../services/persistencia/claves';
+import { esErrorDeTransporte } from '../../services/api';
 
 export function useArticulo(codigo: string, numero: number) {
-  const [articulo, setArticulo] = useState<ArticuloDetalle | null>(null);
-  const [cargando, setCargando] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
+  const numeroValido = !isNaN(numero);
 
-  useEffect(() => {
-    let montado = true;
-    setCargando(true);
-    setError(null);
+  const { data, isLoading, error } = useQuery({
+    queryKey: numeroValido ? claves.articulo(codigo, numero) : claves.articulo(codigo, 0),
+    queryFn: () => obtenerArticulo(codigo, numero),
+    enabled: numeroValido,
+    staleTime: Infinity,
+  });
 
-    if (isNaN(numero)) {
-      setError('Ese artículo no está en el corpus cargado');
-      setCargando(false);
-      return;
+  const articulo = data || null;
+  let mensajeError: string | null = null;
+
+  if (!numeroValido) {
+    mensajeError = 'Ese artículo no está en el corpus cargado';
+  } else if (error) {
+    if (!esErrorDeTransporte(error) || !articulo) {
+      mensajeError = (error as any).mensaje || 'Error al cargar el artículo';
     }
+  }
 
-    obtenerArticulo(codigo, numero)
-      .then((data) => {
-        if (montado) {
-          setArticulo(data);
-          setCargando(false);
-        }
-      })
-      .catch((err) => {
-        if (montado) {
-          setArticulo(null);
-          setError(err.mensaje || 'Error al cargar el artículo');
-          setCargando(false);
-        }
-      });
+  const cargando = numeroValido ? isLoading : false;
 
-    return () => {
-      montado = false;
-    };
-  }, [codigo, numero]);
-
-  return { articulo, cargando, error };
+  return { articulo, cargando, error: mensajeError };
 }

@@ -83,3 +83,6 @@ CLAUDE.md
 # Documentos de trabajo: no se publican
 DESIGN.md
 PRODUCT.md
+# Salida temporal de scripts/pruebas-logica.mjs. Vive dentro del repo porque el
+# require de los modulos compilados tiene que resolver node_modules del proyecto.
+.test-out-*/

@@ -9,12 +9,13 @@ import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { createRequire } from 'node:module';
-import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const raiz = resolve(fileURLToPath(new URL('..', import.meta.url)));
-const salida = mkdtempSync(join(tmpdir(), 'pruebas-logica-'));
+// Dentro del repo, no en el tmp del sistema: los modulos compilados hacen `require` de
+// paquetes del proyecto y desde fuera no resolverian node_modules. Lo ignora .gitignore.
+const salida = mkdtempSync(join(raiz, '.test-out-'));
 const tsc = join(raiz, 'node_modules', 'typescript', 'bin', 'tsc');
 
 const modulos = [
@@ -24,6 +25,7 @@ const modulos = [
   'src/components/consultas/etapas.ts',
   'src/components/consultas/analizarTexto.ts',
   'src/components/avatar/estados.ts',
+  'src/services/persistencia/claves.ts',
 ];
 
 try {
@@ -193,6 +195,40 @@ try {
     assert.equal(TEXTO_ESTADO.thinking, 'Analizando tu consulta…');
     assert.ok(!/%|[0-9]/.test(TEXTO_ESTADO.thinking));
   });
+
+  console.log('--- Cache y persistencia ---');
+  const { claves } = cargar('./services/persistencia/claves');
+  ok('las claves de query son estables y separan por dominio', () => {
+    assert.deepEqual(claves.historial(), ['consultas', 'historial']);
+    assert.deepEqual(claves.consulta('abc'), ['consultas', 'detalle', 'abc']);
+    assert.deepEqual(claves.articulo('CC', 42), ['normativa', 'articulo', 'CC', 42]);
+    assert.deepEqual(claves.indice('CPC'), ['normativa', 'indice', 'CPC']);
+  });
+
+  // El buster es lo unico que protege de rehidratar objetos con una forma vieja tras un
+  // cambio de tipos. Se ejercita el comportamiento, no la existencia de la constante.
+  const { persistQueryClientRestore } = await import('@tanstack/react-query-persist-client');
+  const { QueryClient } = await import('@tanstack/react-query');
+  const restaurarCon = async (buster) => {
+    let descartada = false;
+    await persistQueryClientRestore({
+      queryClient: new QueryClient(),
+      persister: {
+        restoreClient: async () => ({
+          buster: 'v1', timestamp: Date.now(),
+          clientState: { mutations: [], queries: [] },
+        }),
+        removeClient: async () => { descartada = true; },
+        persistClient: async () => {},
+      },
+      buster,
+    });
+    return descartada;
+  };
+  const conBusterDistinto = await restaurarCon('v2');
+  ok('una cache guardada con otra version se descarta', () => assert.equal(conBusterDistinto, true));
+  const conMismoBuster = await restaurarCon('v1');
+  ok('una cache de la version actual se conserva', () => assert.equal(conMismoBuster, false));
 
   console.log(`\n${total} pruebas OK`);
 } finally {
