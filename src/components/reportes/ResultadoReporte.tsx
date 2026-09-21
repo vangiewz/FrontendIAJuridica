@@ -13,8 +13,11 @@ import { colores, espaciado, radios, tipografia } from '../../theme';
 
 interface Props {
   reporte: ReporteResultado;
-  onAbrirFila: (id: string) => void;
+  /** Sin esto las filas no se abren: la llamada no navega fuera de su pantalla. */
+  onAbrirFila?: (id: string) => void;
   onExportar: (formato: FormatoExportacion) => void;
+  /** En el teléfono la exportación es guardar/compartir y la ofrece quien lo muestra: aquí no se repite. */
+  sinExportacion?: boolean;
   exportando: FormatoExportacion | null;
 }
 
@@ -25,7 +28,7 @@ interface Props {
  * terminan en la misma `ReporteEspecificacion` y en el mismo `ReporteResultado`, asi
  * que tienen que verse identicos y exportarse por el mismo camino.
  */
-export function ResultadoReporte({ reporte, onAbrirFila, onExportar, exportando }: Props) {
+export function ResultadoReporte({ reporte, onAbrirFila, onExportar, sinExportacion, exportando }: Props) {
   const ejes = ejesDelGrafico(reporte.columnas);
   const esGrafico = reporte.visualizacion === 'barras' || reporte.visualizacion === 'torta';
   const datos: PuntoGrafico[] = ejes
@@ -80,16 +83,16 @@ export function ResultadoReporte({ reporte, onAbrirFila, onExportar, exportando 
           <TablaReporte
             columnas={reporte.columnas}
             filas={reporte.filas}
-            onAbrir={reporte.ruta_detalle ? onAbrirFila : undefined}
+            onAbrir={reporte.ruta_detalle && onAbrirFila ? onAbrirFila : undefined}
           />
         )}
       </View>
 
-      {reporte.ruta_detalle && reporte.total > 0 ? (
+      {reporte.ruta_detalle && onAbrirFila && reporte.total > 0 ? (
         <Text style={styles.pista}>Tocá una fila para abrir el detalle.</Text>
       ) : null}
 
-      <View style={styles.exportacion}>
+      {sinExportacion ? null : <View style={styles.exportacion}>
         <Text style={styles.etiquetaExportar}>Exportar:</Text>
         {FORMATOS.map(({ formato, etiqueta }) => {
           // El formato que el usuario nombro en su frase queda marcado.
@@ -108,8 +111,8 @@ export function ResultadoReporte({ reporte, onAbrirFila, onExportar, exportando 
             </Pressable>
           );
         })}
-      </View>
-      {!descargaDisponible ? (
+      </View>}
+      {!descargaDisponible && !sinExportacion ? (
         <Text style={styles.pista}>
           La descarga de archivos funciona en la versión web.
         </Text>

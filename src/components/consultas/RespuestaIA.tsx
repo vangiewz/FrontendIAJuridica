@@ -7,6 +7,8 @@ import { colores, espaciado, interlineado, radios, tipografia } from '../../them
 
 interface Props {
   respuesta: RespuestaJuridicaIA;
+  /** Ver `ListaFuentes`: la llamada abre el artículo en su panel en vez de navegar. */
+  alAbrirArticulo?: (codigo: string, numero: number) => void;
 }
 
 /**
@@ -14,7 +16,7 @@ interface Props {
  * normas se apoya, y que queda fuera. Cada fundamento nombra el articulo real del
  * que salio la cita, para que se pueda ir a leerlo completo.
  */
-export function RespuestaIA({ respuesta }: Props) {
+export function RespuestaIA({ respuesta, alAbrirArticulo }: Props) {
   const porId = new Map<string, FuenteIA>(respuesta.fuentes.map((f) => [f.id, f]));
   const fundamentada = respuesta.estado === 'fundamentada';
 
@@ -46,7 +48,9 @@ export function RespuestaIA({ respuesta }: Props) {
                 key={i}
                 style={styles.fundamento}
                 onPress={() => {
-                  if (fuente) {
+                  if (fuente && alAbrirArticulo) {
+                    alAbrirArticulo(fuente.codigo, fuente.numero_articulo);
+                  } else if (fuente) {
                     router.push(
                       `/(app)/articulo?codigo=${encodeURIComponent(fuente.codigo)}&numero=${fuente.numero_articulo}`,
                     );

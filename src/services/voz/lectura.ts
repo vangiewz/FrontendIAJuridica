@@ -6,8 +6,9 @@ import { dividirEnTramos, textoParaLectura } from './textoLectura';
  * Lectura de respuestas con la voz DEL DISPOSITIVO (Android TextToSpeech / iOS
  * AVSpeechSynthesizer). El texto no sale del teléfono: no hay API de voz en la nube.
  *
- * Solo hay un motor y una lectura a la vez. La lectura la inicia siempre el usuario;
- * nada se lee automáticamente.
+ * Solo hay un motor y una lectura a la vez. En el chat la lectura la inicia siempre el
+ * usuario; solo el modo llamada (`useLlamada`) lee automáticamente, y lo hace con esta misma
+ * función.
  */
 
 /** En web el navegador puede usar voces de servidores de terceros: no se ofrece. */
@@ -64,23 +65,33 @@ async function elegirVoz(): Promise<{ voz?: string; idioma: string } | null> {
   return { voz: mejor.identifier, idioma: mejor.language };
 }
 
-export async function leer(id: string, respuesta: string): Promise<void> {
+/**
+ * `alTerminar` (opcional) se llama UNA vez cuando la lectura acaba por sí sola —con `null`—
+ * o falla —con el mensaje—. No se llama si se corta con `detener()`: quien corta ya lo sabe.
+ * El modo llamada lo usa para volver a escuchar cuando la IA termina de hablar.
+ */
+export async function leer(
+  id: string, respuesta: string, alTerminar?: (error: string | null) => void,
+): Promise<void> {
   detener();
   const mio = ++turno;
   const texto = textoParaLectura(respuesta);
-  if (!texto) return;
+  if (!texto) { alTerminar?.(null); return; }
   cambiar({ id, error: null, idError: null });
 
   const voz = await elegirVoz();
   if (mio !== turno) return;
   if (!voz) {
     cambiar({ id: null, error: SIN_VOZ, idError: id });
+    alTerminar?.(SIN_VOZ);
     return;
   }
 
   const tramos = dividirEnTramos(texto, Math.min(Speech.maxSpeechInputLength, 3000));
   const terminar = (error: string | null = null) => {
-    if (mio === turno) cambiar({ id: null, error, idError: error ? id : null });
+    if (mio !== turno) return;
+    cambiar({ id: null, error, idError: error ? id : null });
+    alTerminar?.(error);
   };
   let indice = 0;
   const siguiente = () => {

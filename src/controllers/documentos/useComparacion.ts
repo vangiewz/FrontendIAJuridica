@@ -8,7 +8,7 @@ function esApiError(e: unknown): e is ApiError {
 }
 
 /** Traduce la falla a algo legible. Nunca expone JSON ni stack. */
-function mensajeDeError(e: unknown): string {
+export function mensajeDeError(e: unknown): string {
   if (!esApiError(e)) {
     return 'No pudimos conectar con el servidor. Verificá que el backend esté corriendo y volvé a intentar.';
   }
