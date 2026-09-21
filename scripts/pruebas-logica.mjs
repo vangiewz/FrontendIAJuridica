@@ -29,6 +29,7 @@ const modulos = [
   'src/services/sync/backoff.ts',
   'src/services/sync/clasificarError.ts',
   'src/models/consultas/esquemas.ts',
+  'src/models/normativa/corpus.ts',
 ];
 
 try {
@@ -261,6 +262,33 @@ try {
     assert.ok(EsquemaConsultaIniciar.safeParse({ texto: 'Hola mundo', documento_id: null, client_op_id: '123e4567-e89b-12d3-a456-426614174000' }).success);
     assert.ok(!EsquemaConsultaIniciar.safeParse({ texto: 'Ho', documento_id: null, client_op_id: '123e4567-e89b-12d3-a456-426614174000' }).success);
     assert.ok(!EsquemaConsultaIniciar.safeParse({ texto: 'H'.repeat(2001), documento_id: null, client_op_id: '123e4567-e89b-12d3-a456-426614174000' }).success);
+  });
+
+  console.log('--- Corpus Offline ---');
+  const { armarDetalleLocal, vecinosPuros } = cargar('./models/normativa/corpus');
+  ok('vecinos en el medio', () => {
+    assert.deepEqual(vecinosPuros(5, [1, 5, 10]), { anterior: 1, siguiente: 10 });
+  });
+  ok('vecinos en los bordes', () => {
+    assert.deepEqual(vecinosPuros(1, [1, 5, 10]), { anterior: null, siguiente: 5 });
+    assert.deepEqual(vecinosPuros(10, [1, 5, 10]), { anterior: 5, siguiente: null });
+  });
+  ok('vecinos si no existe', () => {
+    assert.deepEqual(vecinosPuros(2, [1, 5, 10]), { anterior: null, siguiente: null });
+  });
+  ok('armarDetalleLocal conserva los campos', () => {
+    const art = {
+      id: 'abc', codigo: 'CC', articulo: 'Art. 1', numero_articulo: 1, epigrafe: 'Comienzo',
+      texto: 'Contenido', area_juridica: null,
+      ubicacion: { libro: null, parte: null, titulo: null, capitulo: null, seccion: null },
+      estado_vigencia: 'vigente', nota_vigencia: null, fuente_nombre: 'Ley 1', fuente_url: 'http',
+      version: 1
+    };
+    const det = armarDetalleLocal(art, null, 2);
+    assert.equal(det.anterior, null);
+    assert.equal(det.siguiente, 2);
+    assert.equal(det.estado_vigencia, 'vigente');
+    assert.equal(det.fuente_url, 'http');
   });
 
   console.log(`\n${total} pruebas OK`);
