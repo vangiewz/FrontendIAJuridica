@@ -19,7 +19,7 @@ function esApiError(e: unknown): e is ApiError {
 }
 
 /** Traduce cualquier falla a algo que el usuario pueda leer. Nunca expone JSON ni stack. */
-function mensajeDeError(e: unknown): string {
+export function mensajeDeError(e: unknown): string {
   if (!esApiError(e)) {
     // fetch rechaza con TypeError cuando nadie responde: backend apagado, otra URL o sin red.
     return 'No pudimos conectar con el servidor. Verificá que el backend esté corriendo y volvé a intentar.';
@@ -50,7 +50,7 @@ function mensajeDeError(e: unknown): string {
 }
 
 /** Las mismas reglas que el backend, aplicadas antes de gastar la subida. */
-function validar(archivo: ArchivoSeleccionado): string | null {
+export function validar(archivo: ArchivoSeleccionado): string | null {
   if (!EXTENSIONES_PERMITIDAS.includes(archivo.extension)) {
     return `"${archivo.nombre}" no es un formato admitido. El sistema acepta ${FORMATOS_LEGIBLES}.`;
   }

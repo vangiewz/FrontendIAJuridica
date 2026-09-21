@@ -32,6 +32,9 @@ export interface Intercambio {
 const PERDIDA_DE_CONEXION =
   'Perdí la conexión con el servidor mientras esperaba la respuesta. Tu consulta puede haberse completado: revísala en Historial o vuelve a intentar la conexión.';
 
+/** Del documento activo solo hacen falta el id (viaja al backend) y el nombre (se muestra). */
+export type DocumentoActivo = Pick<ItemDocumento, 'id' | 'nombre_archivo'>;
+
 const esErrorDeRed = (e: any) =>
   e?.codigo === 'SIN_CONEXION' || e?.codigo === 'TIEMPO_AGOTADO' ||
   (typeof e?.estado === 'number' && e.estado >= 502 && e.estado <= 504);
@@ -46,8 +49,8 @@ const esErrorDeRed = (e: any) =>
  * Reutiliza el mecanismo asincrono existente (iniciar + consultar el avance): el modelo
  * local tarda, y asi la pantalla puede decir en que etapa va.
  */
-export function useAsistente() {
-  const [documento, setDocumento] = useState<ItemDocumento | null>(null);
+export function useAsistente(documentoInicial: DocumentoActivo | null = null) {
+  const [documento, setDocumento] = useState<DocumentoActivo | null>(documentoInicial);
   const [intercambios, setIntercambios] = useState<Intercambio[]>([]);
   const [enviando, setEnviando] = useState(false);
   const seguimiento = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -172,7 +175,7 @@ export function useAsistente() {
   }, [detener, seguir, actualizar, preguntar]);
 
   /** Cambiar de documento no borra lo ya conversado; solo cambia el contexto siguiente. */
-  const elegirDocumento = useCallback((nuevo: ItemDocumento | null) => {
+  const elegirDocumento = useCallback((nuevo: DocumentoActivo | null) => {
     setDocumento(nuevo);
   }, []);
 

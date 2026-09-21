@@ -30,7 +30,9 @@ export function AsistenteAyudaGlobal() {
   const { visible, abrirAyuda, cerrarAyuda, pantalla } = useAyuda();
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
-  if (!usuario) return null;
+  const ruta = usePathname();
+  // La llamada por voz ocupa toda la pantalla: la burbuja de ayuda no debe flotar encima.
+  if (!usuario || ruta.endsWith('/llamada')) return null;
 
   const bottom = (pantalla === 'asistente' ? 148 : 78) + (Platform.OS === 'web' ? 0 : insets.bottom);
   return <>

@@ -86,6 +86,13 @@ export function AsistenteView() {
     detenerLectura();
     void voz.iniciar();
   };
+  /** Abre la llamada por voz (pantalla aparte). El documento activo la acompaña como contexto. */
+  const llamar = () => {
+    detenerLectura();
+    const contexto = documento
+      ? `?documentoId=${documento.id}&documentoNombre=${encodeURIComponent(documento.nombre_archivo)}` : '';
+    router.push(`/(app)/llamada${contexto}`);
+  };
   const nuevaConversacion = () => {
     detenerLectura();
     limpiarConversacion();
@@ -120,6 +127,12 @@ export function AsistenteView() {
                 {subtitulo}
               </Text>
             </View>
+            {VOZ ? (
+              <Pressable onPress={llamar} accessibilityRole="button"
+                accessibilityLabel="Llamar al asistente por voz" style={styles.nueva}>
+                <Icono nombre="call-outline" tamano={20} color={colores.accion} />
+              </Pressable>
+            ) : null}
             {intercambios.length > 0 ? (
               <Pressable onPress={nuevaConversacion}
                 accessibilityRole="button" accessibilityLabel="Nueva conversación" style={styles.nueva}>
@@ -163,6 +176,9 @@ export function AsistenteView() {
                   : 'Pregunta sobre derecho civil o trabaja con un documento.'}
               </Text>
               <View style={styles.sugerencias}>
+                {VOZ ? (
+                  <Sugerencia icono="call-outline" titulo="Llamar al asistente (conversación por voz)" onPress={llamar} />
+                ) : null}
                 {VOZ ? (
                   <Sugerencia icono="mic-outline" titulo="Dictar mi consulta por voz" onPress={hablar} />
                 ) : null}
