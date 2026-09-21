@@ -40,11 +40,16 @@ export function SesionProvider({ children }: { children: ReactNode }) {
     try {
       const tokens = await leerSesion();
       if (tokens) {
-        const userData = await peticion<Usuario>('/api/v1/auth/yo');
+        // Con tiempo máximo: sin él, un servidor inalcanzable en la red local deja la app
+        // en blanco hasta que el sistema corta la conexión (minutos en Android).
+        const userData = await peticion<Usuario>('/api/v1/auth/yo', { timeoutMs: 12000 });
         setUsuario(userData);
       }
     } catch (e) {
-      await borrarSesion();
+      // Sin conexión no significa sesión inválida: los tokens se conservan. Solo se
+      // descartan cuando el servidor respondió y los rechazó.
+      const codigo = (e as { codigo?: string } | null)?.codigo;
+      if (codigo !== 'SIN_CONEXION' && codigo !== 'TIEMPO_AGOTADO') await borrarSesion();
     } finally {
       setCargando(false);
     }

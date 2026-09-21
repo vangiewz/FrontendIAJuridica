@@ -13,6 +13,11 @@ export async function crearConsulta(texto: string): Promise<string> {
  * Arranca la consulta y devuelve el id de inmediato. El modelo local puede tardar
  * decenas de segundos, asi que la pantalla sigue el avance con obtenerConsulta.
  */
+// Tiempos por LLAMADA, no por procesamiento: arrancar y leer el avance son respuestas
+// inmediatas aunque el modelo tarde minutos en contestar.
+const TIEMPO_INICIAR_MS = 30000;
+const TIEMPO_AVANCE_MS = 20000;
+
 export async function iniciarConsulta(
   texto: string,
   documentoId?: string | null,
@@ -22,12 +27,13 @@ export async function iniciarConsulta(
     // El documento activo viaja como contexto. El backend comprueba que sea del
     // usuario antes de usarlo, asi que mandarlo no es una via de confianza.
     body: JSON.stringify({ texto, documento_id: documentoId ?? null }),
+    timeoutMs: TIEMPO_INICIAR_MS,
   });
   return data.id;
 }
 
 export async function obtenerConsulta(id: string): Promise<Consulta> {
-  return peticion<Consulta>(`/api/v1/consultas/${id}`);
+  return peticion<Consulta>(`/api/v1/consultas/${id}`, { timeoutMs: TIEMPO_AVANCE_MS });
 }
 
 export async function listarHistorial(): Promise<ItemHistorial[]> {

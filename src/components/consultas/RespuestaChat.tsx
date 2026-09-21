@@ -1,17 +1,21 @@
 import React, { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { RespuestaJuridicaIA } from '../../models/consultas';
 import { Icono } from '../shared/Icono';
 import { TextoRespuesta } from './TextoRespuesta';
+import { BotonEscuchar } from '../voz/BotonEscuchar';
 import { colores, espaciado, interlineado, radios, tipografia } from '../../theme';
 
-export function RespuestaChat({ respuesta, documentoId }: {
+export function RespuestaChat({ respuesta, documentoId, lecturaId }: {
   respuesta: RespuestaJuridicaIA;
   documentoId: string | null;
+  /** Si viene, se ofrece «Escuchar respuesta» (lectura con la voz del teléfono). */
+  lecturaId?: string;
 }) {
   const router = useRouter();
-  const [abiertas, setAbiertas] = useState(false);
+  // Las fuentes son parte de la respuesta: se muestran de entrada, y se pueden plegar.
+  const [abiertas, setAbiertas] = useState(true);
   const relato = respuesta.trazabilidad?.modo_consulta === 'relato';
   const complejo = respuesta.trazabilidad?.modo === 'caso_complejo';
   const porId = new Map(respuesta.fuentes.map((fuente) => [fuente.id, fuente]));
@@ -78,6 +82,7 @@ export function RespuestaChat({ respuesta, documentoId }: {
       ) : null}
       {complejo ? <Text style={[styles.subtitulo, styles.separador]}>Conclusión orientativa</Text> : null}
       <TextoRespuesta texto={respuesta.conclusion} />
+      {lecturaId ? <BotonEscuchar id={lecturaId} texto={respuesta.conclusion} /> : null}
       {limites.length > 0 ? (
         <View style={styles.separador}>
           <Text style={styles.subtitulo}>Información adicional necesaria</Text>
@@ -93,7 +98,7 @@ export function RespuestaChat({ respuesta, documentoId }: {
             style={styles.fuentesControl}
           >
             <Icono nombre="documents-outline" tamano={16} color={colores.accion} />
-            <Text style={styles.fuentesTitulo}>Fuentes ({cantidad})</Text>
+            <Text style={styles.fuentesTitulo}>Fuentes utilizadas ({cantidad})</Text>
             <Icono nombre={abiertas ? 'chevron-up' : 'chevron-down'} tamano={16} color={colores.accion} />
           </Pressable>
           {abiertas ? (
@@ -130,7 +135,9 @@ export function RespuestaChat({ respuesta, documentoId }: {
 }
 
 const styles = StyleSheet.create({
-  contenedor: { alignSelf: 'flex-start', maxWidth: '94%', backgroundColor: colores.superficie,
+  // En el celular la respuesta usa todo el ancho: es un texto para leer, no un globo.
+  contenedor: { alignSelf: 'flex-start', maxWidth: Platform.OS === 'web' ? '94%' : '100%',
+    width: Platform.OS === 'web' ? undefined : '100%', backgroundColor: colores.superficie,
     borderWidth: 1, borderColor: colores.linea, borderRadius: radios.l,
     padding: espaciado.m, marginTop: espaciado.m },
   respuesta: { color: colores.tinta, fontFamily: tipografia.familias.cuerpo,

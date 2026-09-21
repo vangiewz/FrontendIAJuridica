@@ -1,10 +1,50 @@
+import { Platform } from 'react-native';
 import { leerSesion, borrarSesion, guardarSesion } from './almacenamiento';
 import { ApiError } from '../models/shared';
-
-const BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:8000';
+import { BASE_URL, SERVIDOR } from './baseUrl';
 
 export interface OpcionesPeticion extends RequestInit {
   params?: Record<string, string>;
+  /**
+   * Tiempo máximo de espera de la RESPUESTA (no del procesamiento). Solo para llamadas
+   * cortas —arrancar una consulta, leer su avance—: el modelo puede tardar minutos, pero
+   * cada llamada individual al servidor no. Sin esto, una red caída deja la petición
+   * colgada indefinidamente en el celular.
+   */
+  timeoutMs?: number;
+}
+
+/**
+ * Un fallo de red o un tiempo agotado no traen respuesta HTTP: `fetch` lanza un TypeError
+ * ("Network request failed" en Android, "Failed to fetch" en web) que no le sirve a nadie.
+ * Se traduce a un error propio con un mensaje que dice qué revisar.
+ */
+function errorDeRed(agotado: boolean): ApiError {
+  const web = Platform.OS === 'web';
+  if (agotado) {
+    return {
+      mensaje: `El servidor (${SERVIDOR}) tardó demasiado en responder. Comprueba la conexión e inténtalo de nuevo.`,
+      codigo: 'TIEMPO_AGOTADO', estado: 0,
+    };
+  }
+  return {
+    mensaje: web
+      ? `No pude conectar con el servidor (${SERVIDOR}). Verifica que esté encendido.`
+      : `No pude conectar con el servidor local (${SERVIDOR}). Verifica que el celular y la computadora estén en la misma red y que el servidor esté encendido.`,
+    codigo: 'SIN_CONEXION', estado: 0,
+  };
+}
+
+async function pedir(url: string, init: RequestInit, timeoutMs?: number): Promise<Response> {
+  const controlador = timeoutMs && !init.signal ? new AbortController() : null;
+  const reloj = controlador ? setTimeout(() => controlador.abort(), timeoutMs) : null;
+  try {
+    return await fetch(url, controlador ? { ...init, signal: controlador.signal } : init);
+  } catch {
+    throw errorDeRed(controlador?.signal.aborted === true);
+  } finally {
+    if (reloj) clearTimeout(reloj);
+  }
 }
 
 export interface ArchivoDescargado {
@@ -34,21 +74,22 @@ async function enviar(ruta: string, opciones: OpcionesPeticion): Promise<Respons
     headers.set('Content-Type', 'application/json');
   }
 
-  let res = await fetch(url.toString(), { ...opciones, headers });
+  const { params: _params, timeoutMs, ...init } = opciones;
+  let res = await pedir(url.toString(), { ...init, headers }, timeoutMs);
 
   if (res.status === 401 && tokens?.refresh_token && !ruta.includes('/refresh')) {
     // try refresh once
-    const refreshRes = await fetch(`${BASE_URL}/api/v1/auth/refresh`, {
+    const refreshRes = await pedir(`${BASE_URL}/api/v1/auth/refresh`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ refresh_token: tokens.refresh_token })
-    });
+    }, timeoutMs);
 
     if (refreshRes.ok) {
       const newTokens = await refreshRes.json();
       await guardarSesion(newTokens);
       headers.set('Authorization', `Bearer ${newTokens.access_token}`);
-      res = await fetch(url.toString(), { ...opciones, headers });
+      res = await pedir(url.toString(), { ...init, headers }, timeoutMs);
     } else {
       await borrarSesion();
       throw { mensaje: 'Sesión expirada', codigo: 'UNAUTHORIZED', estado: 401 };
