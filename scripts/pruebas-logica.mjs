@@ -92,24 +92,22 @@ try {
   console.log('--- URL del backend ---');
   ok('la variable explícita gana y pierde la barra final', () =>
     assert.equal(resolverBaseUrl({ variable: 'http://10.0.0.5:9000/', hostUri: '192.168.1.23:8081', plataforma: 'android' }), 'http://10.0.0.5:9000'));
-  ok('false selecciona cloud y true selecciona local', () => {
-    assert.equal(resolverBaseUrl({ usarLocal: 'false', urlLocal: 'http://127.0.0.1:8000', urlCloud: 'https://cloud.test/', plataforma: 'android' }), 'https://cloud.test');
-    assert.equal(resolverBaseUrl({ usarLocal: 'true', urlLocal: 'http://127.0.0.1:8000/', urlCloud: 'https://cloud.test', plataforma: 'android' }), 'http://127.0.0.1:8000');
-  });
-  ok('false no se interpreta como true por ser texto', () =>
-    assert.equal(resolverBaseUrl({ usarLocal: 'FALSE', urlLocal: 'http://local.test', urlCloud: 'https://cloud.test', plataforma: 'android' }), 'https://cloud.test'));
-  ok('celular sin variable: host de Metro y puerto 8000', () =>
-    assert.equal(resolverBaseUrl({ variable: undefined, hostUri: '192.168.1.23:8081', plataforma: 'android' }), 'http://192.168.1.23:8000'));
+  ok('la variable con la URL de produccion tambien manda', () =>
+    assert.equal(resolverBaseUrl({ variable: 'https://ia-juridica-api.azurewebsites.net', hostUri: '192.168.1.23:8081', plataforma: 'android' }), 'https://ia-juridica-api.azurewebsites.net'));
+  ok('sin variable, el celular usa el host de Metro y el puerto 8000', () =>
+    assert.equal(resolverBaseUrl({ hostUri: '192.168.1.23:8081', plataforma: 'android' }), 'http://192.168.1.23:8000'));
   ok('development build (hostUri con esquema) también sirve', () =>
     assert.equal(resolverBaseUrl({ variable: '', hostUri: 'http://192.168.1.23:8081/x', plataforma: 'android' }), 'http://192.168.1.23:8000'));
   ok('variable vacía o con espacios cuenta como no definida', () =>
     assert.equal(resolverBaseUrl({ variable: '   ', hostUri: '192.168.1.23:8081', plataforma: 'ios' }), 'http://192.168.1.23:8000'));
-  ok('web usa loopback aunque haya hostUri', () =>
-    assert.equal(resolverBaseUrl({ variable: '', hostUri: '192.168.1.23:8081', plataforma: 'web' }), 'http://127.0.0.1:8000'));
-  ok('el túnel de Expo NO se toma como backend', () =>
-    assert.equal(resolverBaseUrl({ variable: '', hostUri: 'abc-anonymous-8081.exp.direct:80', plataforma: 'android' }), 'http://127.0.0.1:8000'));
-  ok('sin hostUri (build de producción) cae a loopback', () =>
-    assert.equal(resolverBaseUrl({ variable: '', hostUri: null, plataforma: 'android' }), 'http://127.0.0.1:8000'));
+  ok('en web con Metro tambien vale el host: es la misma PC', () =>
+    assert.equal(resolverBaseUrl({ hostUri: 'localhost:8081', plataforma: 'web' }), 'http://localhost:8000'));
+  ok('el túnel de Expo NO se toma como backend: cae a produccion', () =>
+    assert.equal(resolverBaseUrl({ hostUri: 'abc-anonymous-8081.exp.direct:80', plataforma: 'android' }), 'https://ia-juridica-api.azurewebsites.net'));
+  ok('sin variable y sin Metro (APK repartido o Vercel) va a produccion', () => {
+    assert.equal(resolverBaseUrl({ hostUri: null, plataforma: 'android' }), 'https://ia-juridica-api.azurewebsites.net');
+    assert.equal(resolverBaseUrl({ plataforma: 'web' }), 'https://ia-juridica-api.azurewebsites.net');
+  });
   ok('describirServidor no expone esquema ni ruta', () =>
     assert.equal(describirServidor('http://192.168.1.23:8000/api'), '192.168.1.23:8000'));
 

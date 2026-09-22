@@ -45,7 +45,11 @@ export function BarraConexion() {
         isFallo && styles.raizFallo,
         { opacity: anim }
       ]}
-      accessibilityRole={"status" as any}
+      // Sin `accessibilityRole`: "status" es un rol de ARIA y Android lo rechaza en
+      // tiempo de ejecucion con IllegalArgumentException, tumbando la app entera.
+      // `accessibilityLiveRegion` es el mecanismo correcto en ambas plataformas: anuncia
+      // el cambio sin robarle el foco a quien esta escribiendo, y react-native-web lo
+      // traduce a aria-live="polite".
       accessibilityLiveRegion="polite"
     >
       <View style={styles.contenido}>

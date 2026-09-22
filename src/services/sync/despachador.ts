@@ -44,14 +44,28 @@ export async function sincronizar(cliente: QueryClient): Promise<void> {
 }
 
 async function procesarBucle(cliente: QueryClient): Promise<void> {
+  // Cuantas veces salio elegida cada operacion en ESTE pase. El almacen se traga sus
+  // errores a proposito —un disco lleno no puede tumbar la app—, pero entonces `marcar`
+  // puede no persistir nada, y la vuelta siguiente vuelve a encontrar la misma operacion.
+  // Sin este freno el bucle gira a toda velocidad y congela el hilo de JS: la app queda
+  // en gris hasta que Android la mata.
+  const vistas = new Map<string, number>();
+
   while (true) {
     if (estaPausada) break;
 
     const cola = await leerCola();
     const ahoraIso = new Date().toISOString();
     const op = cola.find(o => o.estado === 'pendiente' && o.proximoIntentoEn <= ahoraIso);
-    
+
     if (!op) break;
+
+    const veces = (vistas.get(op.id) ?? 0) + 1;
+    vistas.set(op.id, veces);
+    if (veces > 1) {
+      console.warn(`[sync] ${op.id} no avanza: el almacen no esta guardando su estado. Corto el pase.`);
+      break;
+    }
 
     await marcar(op.id, { estado: 'enviando' });
 
@@ -107,12 +121,25 @@ export function programarProximo(cliente: QueryClient): void {
     let minTime = Infinity;
     for (const op of pendientes) {
       const time = new Date(op.proximoIntentoEn).getTime();
-      if (time < minTime) minTime = time;
+      // Una fecha corrupta daria NaN, y NaN pierde toda comparacion: la operacion quedaria
+      // invisible para el temporizador y no se reintentaria nunca.
+      if (Number.isFinite(time) && time < minTime) minTime = time;
     }
+    if (!Number.isFinite(minTime)) return;
 
-    const delay = Math.max(0, minTime - Date.now());
+    // Piso de un segundo. Si la fecha ya paso —o el almacen no guardo la nueva—, el delay
+    // seria 0 y cada pase agendaria el siguiente al instante: un bucle de temporizadores
+    // que congela la app igual que el del `while`.
+    const delay = Math.max(1000, minTime - Date.now());
     timerBackoff = setTimeout(() => {
-      sincronizar(cliente);
+      void sincronizar(cliente);
     }, delay);
   }).catch(() => {});
+}
+
+export function cancelarEsperaBackoff(): void {
+  if (timerBackoff) {
+    clearTimeout(timerBackoff);
+    timerBackoff = null;
+  }
 }

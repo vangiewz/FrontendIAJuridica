@@ -26,7 +26,9 @@ try {
 const cargar = createRequire(join(salida, 'x.js'));
 const { EsquemaConsultaIniciar } = cargar('./models/consultas/esquemas');
 
-const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://127.0.0.1:8000';
+// Corre en Node, no en Expo, asi que el .env no se carga solo: por defecto apunta al
+// backend local, que es contra el que tiene sentido comparar contratos mientras se trabaja.
+const apiUrl = process.env.API_URL || 'http://127.0.0.1:8000';
 
 async function verificar() {
   try {

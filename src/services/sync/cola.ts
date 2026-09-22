@@ -86,26 +86,66 @@ export async function reintentarAhora(id: string): Promise<void> {
   await marcar(id, { estado: 'pendiente', intentos: 0, proximoIntentoEn: new Date().toISOString(), ultimoError: undefined });
 }
 
-const eventosResultados = new Map<string, (idReal: string) => void>();
+export async function resetearReintentosPendientes(): Promise<void> {
+  const cola = await leerCola();
+  let hubo = false;
+  const ahora = new Date().toISOString();
+  for (const op of cola) {
+    if (op.estado === 'pendiente' && new Date(op.proximoIntentoEn).getTime() > Date.now()) {
+      op.proximoIntentoEn = ahora;
+      hubo = true;
+    }
+  }
+  if (hubo) await guardarCola(cola);
+}
+
+const eventosResultados = new Map<string, Set<(idReal: string) => void>>();
+const resultadosTerminados = new Map<string, string>();
 
 export function publicarResultado(opId: string, idReal: string): void {
-  const resolutor = eventosResultados.get(opId);
-  if (resolutor) {
-    resolutor(idReal);
+  resultadosTerminados.set(opId, idReal);
+  const resolutores = eventosResultados.get(opId);
+  if (resolutores) {
+    resolutores.forEach(r => r(idReal));
     eventosResultados.delete(opId);
   }
 }
 
+export function suscribirResultado(opId: string, alSalir: (idReal: string) => void): () => void {
+  const ya = resultadosTerminados.get(opId);
+  if (ya) { alSalir(ya); return () => {}; }
+  let resolutores = eventosResultados.get(opId);
+  if (!resolutores) {
+    resolutores = new Set();
+    eventosResultados.set(opId, resolutores);
+  }
+  resolutores.add(alSalir);
+  
+  return () => {
+    const res = eventosResultados.get(opId);
+    if (res) {
+      res.delete(alSalir);
+      if (res.size === 0) {
+        eventosResultados.delete(opId);
+      }
+    }
+  };
+}
+
 export function esperarResultado(opId: string, tiempoMs: number): Promise<string | null> {
   return new Promise((resolve) => {
-    const timeout = setTimeout(() => {
-      eventosResultados.delete(opId);
-      resolve(null);
-    }, tiempoMs);
-
-    eventosResultados.set(opId, (idReal: string) => {
+    let timeout: ReturnType<typeof setTimeout>;
+    
+    const handler = (idReal: string) => {
       clearTimeout(timeout);
       resolve(idReal);
-    });
+    };
+
+    const desuscribir = suscribirResultado(opId, handler);
+    
+    timeout = setTimeout(() => {
+      desuscribir();
+      resolve(null);
+    }, tiempoMs);
   });
 }

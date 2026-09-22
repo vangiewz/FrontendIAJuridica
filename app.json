@@ -11,7 +11,7 @@
       "supportsTablet": true,
       "infoPlist": {
         "NSSpeechRecognitionUsageDescription": "Permite que $(PRODUCT_NAME) use el reconocimiento de voz para convertir tu voz en texto.",
-        "NSMicrophoneUsageDescription": "Permite que $(PRODUCT_NAME) use el micrófono para dictar tus consultas."
+        "NSMicrophoneUsageDescription": "Permite que $(PRODUCT_NAME) use el micrÃ³fono para dictar tus consultas."
       }
     },
     "android": {
@@ -26,9 +26,14 @@
       "blockedPermissions": [
         "android.permission.READ_EXTERNAL_STORAGE",
         "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.SYSTEM_ALERT_WINDOW",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
         "android.permission.SYSTEM_ALERT_WINDOW"
       ],
       "permissions": [
+        "android.permission.INTERNET",
+        "android.permission.ACCESS_NETWORK_STATE",
         "android.permission.RECORD_AUDIO",
         "android.permission.CAMERA"
       ],
@@ -45,7 +50,7 @@
       [
         "expo-speech-recognition",
         {
-          "microphonePermission": "Permite que $(PRODUCT_NAME) use el micrófono para dictar tus consultas.",
+          "microphonePermission": "Permite que $(PRODUCT_NAME) use el micrÃ³fono para dictar tus consultas.",
           "speechRecognitionPermission": "Permite que $(PRODUCT_NAME) use el reconocimiento de voz para convertir tu voz en texto.",
           "androidSpeechServicePackages": [
             "com.google.android.googlequicksearchbox",
@@ -56,7 +61,7 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Permite que $(PRODUCT_NAME) use la cámara para escanear documentos.",
+          "cameraPermission": "Permite que $(PRODUCT_NAME) use la cÃ¡mara para escanear documentos.",
           "microphonePermission": false,
           "recordAudioAndroid": false,
           "barcodeScannerEnabled": false
@@ -66,7 +71,8 @@
         "expo-build-properties",
         {
           "android": {
-            "usesCleartextTraffic": true
+            "usesCleartextTraffic": true,
+            "cmakeVersion": "3.31.6"
           }
         }
       ],
@@ -96,14 +102,20 @@
           "icon": "./assets/android-icon-monochrome.png",
           "color": "#1B6B4A"
         }
-      ],
-      "./plugins/withReleaseSigning"
+      ]
     ],
     "extra": {
       "router": {},
       "eas": {
         "projectId": "25ecaf8c-0be9-4a22-85b5-69796e8de094"
       }
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/25ecaf8c-0be9-4a22-85b5-69796e8de094"
     }
   }
 }
+

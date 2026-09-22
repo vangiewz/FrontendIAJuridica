@@ -14,10 +14,16 @@ expo-env.d.ts
 .kotlin/
 *.orig.*
 *.jks
+*.keystore
 *.p8
 *.p12
 *.key
 *.mobileprovision
+
+# Firma de release: rutas y contraseñas del keystore, propias de cada maquina.
+android-release.properties
+# Ruta del Android SDK, la escribe cada instalacion.
+local.properties
 
 # Metro
 .metro-health-check*
@@ -32,11 +38,15 @@ yarn-error.*
 .DS_Store
 *.pem
 
-# local environment files
+# Variables de entorno: NINGUNA se versiona, ni siquiera las de solo valores publicos.
+# La unica variable de la app es EXPO_PUBLIC_API_URL, y esta documentada en el README:
+#   - En Vercel se define en el panel del proyecto.
+#   - En local, cada uno tiene su .env y comenta una linea u otra para elegir a que
+#     backend apunta.
+# Sin .env, la app va sola a produccion (o al host de Metro si esta corriendo `expo start`).
 .env
 .ENV
 .env.*
-!.env.example
 
 # Python / virtual environments
 .venv/
@@ -88,4 +98,3 @@ PRODUCT.md
 .test-out-*/
 
 # La configuración de producción solo tiene valores públicos: se versiona.
-!.env.production

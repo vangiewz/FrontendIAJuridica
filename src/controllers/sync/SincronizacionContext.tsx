@@ -1,9 +1,10 @@
+import NetInfo from '@react-native-community/netinfo';
 import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { AppState } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 import { OperacionPendiente } from '../../models/shared/sincronizacion';
-import { leerCola, reintentarAhora, suscribirCola } from '../../services/sync/cola';
-import { sincronizar, estaEnPausa } from '../../services/sync/despachador';
+import { leerCola, reintentarAhora, suscribirCola, resetearReintentosPendientes } from '../../services/sync/cola';
+import { sincronizar, estaEnPausa, cancelarEsperaBackoff } from '../../services/sync/despachador';
 import { SesionContext } from '../auth/SesionContext';
 import { useCorpusLocal } from '../normativa/useCorpusLocal';
 
@@ -94,9 +95,20 @@ export function SincronizacionProvider({ children }: { children: React.ReactNode
       llamarSincronizar();
     });
 
+    // Al reconectar internet, procesar reintentos pendientes sin esperar backoff
+    const desuscribirRed = NetInfo.addEventListener(estadoRed => {
+      if (estadoRed.isConnected) {
+        cancelarEsperaBackoff();
+        void resetearReintentosPendientes().then(() => {
+          return llamarSincronizar();
+        });
+      }
+    });
+
     return () => {
       sub.remove();
       desuscribir();
+      desuscribirRed();
     };
   }, [llamarSincronizar, refrescarCola]);
 
