@@ -110,6 +110,18 @@ export const MENSAJES_RECEPCION = {
   sin_uri: 'No pude leer el archivo compartido.',
 } as const;
 
+/**
+ * La copia en la caché privada como `file:///ruta`, o null si no es un archivo local.
+ *
+ * `expo-sharing` arma la URI con `java.io.File.toURI()`, que escribe `file:/data/...` (UNA
+ * barra). Exigir `file://` descartaba todo archivo compartido. Un `content://` o un `http`
+ * siguen sin pasar: solo se usa la copia que el módulo nativo ya dejó en la caché.
+ */
+export function uriArchivoLocal(uri: string | null | undefined): string | null {
+  const m = /^file:\/*(\/.*)$/i.exec((uri ?? '').trim());
+  return m ? `file://${m[1].replace(/^\/+/, '/')}` : null;
+}
+
 const nombreDeUri = (uri: string): string => {
   try {
     const ultimo = decodeURIComponent(uri.split('?')[0].split('/').pop() ?? '');

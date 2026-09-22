@@ -20,7 +20,8 @@ export interface OpcionesPeticion extends RequestInit {
  * Se traduce a un error propio con un mensaje que dice qué revisar.
  */
 function errorDeRed(agotado: boolean): ApiError {
-  const web = Platform.OS === 'web';
+  // El servidor de la PC se sirve por http en la red local; el publicado, por https.
+  const web = Platform.OS === 'web' || BASE_URL.startsWith('https://');
   if (agotado) {
     return {
       mensaje: `El servidor (${SERVIDOR}) tardó demasiado en responder. Comprueba la conexión e inténtalo de nuevo.`,

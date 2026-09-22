@@ -69,6 +69,7 @@ const {
 const {
   MIME_POR_EXTENSION, mimeDeFormato, mimeDeArchivo, conExtension, nombreUnico, extensionDeNombre,
   normalizarRecibido, describirArchivo, claveDeRecepcion, esShareRepetido, MENSAJES_RECEPCION,
+  uriArchivoLocal,
 } = cargar('./services/archivos/tiposArchivo');
 const { crearLiberador } = cargar('./services/archivos/pantallaSistemaPuro');
 const F = cargar('./services/recordatorios/fechas');
@@ -552,6 +553,13 @@ try {
     assert.equal(normalizarRecibido(recibido({ contentSize: 0 })).motivo, 'vacio');
     assert.equal(normalizarRecibido(recibido({ contentSize: null })).ok, true); // se comprueba la copia después
     assert.equal(normalizarRecibido(recibido({ contentUri: null })).motivo, 'sin_uri');
+  });
+  ok('recibir: la copia de expo-sharing llega como file:/ (una barra) y se acepta', () => {
+    assert.equal(uriArchivoLocal('file:/data/user/0/app/cache/contrato.pdf'), 'file:///data/user/0/app/cache/contrato.pdf');
+    assert.equal(uriArchivoLocal('file:///data/user/0/app/cache/contrato.pdf'), 'file:///data/user/0/app/cache/contrato.pdf');
+    assert.equal(uriArchivoLocal('content://media/external/file/125080'), null);
+    assert.equal(uriArchivoLocal('https://ejemplo.com/a.pdf'), null);
+    assert.equal(uriArchivoLocal(null), null);
   });
   ok('recibir: el nombre es solo un nombre (nunca una ruta del otro app)', () => {
     assert.equal(normalizarRecibido(recibido({ originalName: '../../etc/pass.pdf' })).archivo.nombre, 'pass.pdf');

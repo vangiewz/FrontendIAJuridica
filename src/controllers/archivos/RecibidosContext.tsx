@@ -6,7 +6,7 @@ import { TAMANO_MAXIMO_BYTES } from '../../models/documentos';
 import { borrarArchivo } from '../../services/escaner/imagenes';
 import {
   ArchivoRecibido, claveDeRecepcion, esShareRepetido, MENSAJES_RECEPCION, normalizarRecibido,
-  PayloadRecibido, RecepcionFallida,
+  PayloadRecibido, RecepcionFallida, uriArchivoLocal,
 } from '../../services/archivos/tiposArchivo';
 
 /**
@@ -100,7 +100,7 @@ function ProveedorAndroid({ children }: { children: React.ReactNode }) {
       for (const r of resueltos) {
         const payload: PayloadRecibido = {
           // Solo archivos ya copiados a la caché privada: nunca un http ni un content:// crudo.
-          contentUri: r.contentUri && r.contentUri.startsWith('file://') ? r.contentUri : null,
+          contentUri: uriArchivoLocal(r.contentUri),
           contentMimeType: r.contentMimeType ?? null,
           originalName: r.originalName ?? null,
           contentSize: r.contentSize ?? null,
@@ -111,6 +111,13 @@ function ProveedorAndroid({ children }: { children: React.ReactNode }) {
         if (!resultado.ok) {
           if (payload.contentUri) borrarArchivo(payload.contentUri); // no se conserva lo que no se va a usar
           fallar(resultado.nombre, resultado.motivo, resultado.mensaje);
+          continue;
+        }
+        // expo-sharing ignora un error al copiar y devuelve igual la ruta: sin copia no hay archivo.
+        let copiado = false;
+        try { copiado = new File(resultado.archivo.uri).exists; } catch { /* ruta ilegible */ }
+        if (!copiado) {
+          fallar(resultado.archivo.nombre, 'sin_uri', MENSAJES_RECEPCION.sin_uri);
           continue;
         }
         const id = nuevoId();
