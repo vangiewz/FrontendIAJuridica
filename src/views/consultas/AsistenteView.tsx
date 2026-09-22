@@ -15,7 +15,8 @@ import { RespuestaChat } from '../../components/consultas/RespuestaChat';
 import { SelectorDocumento } from '../../components/consultas/SelectorDocumento';
 import { PanelVoz } from '../../components/voz/PanelVoz';
 import { AyudaEnChat } from '../../components/ayuda/AyudaEnChat';
-import { useServidor } from '../../controllers/conexion/useServidor';
+import { SelloEstado } from '../../components/shared/SelloEstado';
+import { useConexion } from '../../controllers/conexion/useConexion';
 import { Intercambio, useAsistente } from '../../controllers/consultas/useAsistente';
 import { useDictado } from '../../controllers/voz/useDictado';
 import { useHablando } from '../../controllers/voz/useHablando';
@@ -38,7 +39,7 @@ export function AsistenteView() {
   const insets = useSafeAreaInsets();
   const { documento, elegirDocumento, intercambios, enviando, preguntar, responderAyuda, reintentar,
     limpiarConversacion } = useAsistente();
-  const servidor = useServidor();
+  const servidor = useConexion();
   const [texto, setTexto] = useState('');
   const [dictado, setDictado] = useState(false);
   const voz = useDictado((dictada) => {
@@ -109,7 +110,7 @@ export function AsistenteView() {
 
   // El avatar refleja estados REALES: el dictado, la consulta en curso y la lectura en voz alta.
   const hablando = useHablando();
-  const servidorCaido = servidor.estado === 'caido';
+  const servidorCaido = servidor.estado === 'servidor-caido' || servidor.estado === 'sin-red';
   const estadoAvatar = resolverEstadoAvatar({
     dictado: voz.estado, dictadoInformativo: voz.error?.informativo, hablando, procesando: enviando,
     conError: servidorCaido || intercambios[intercambios.length - 1]?.error != null,
@@ -145,7 +146,7 @@ export function AsistenteView() {
               </Pressable>
             ) : null}
           </View>
-          {servidor.estado === 'caido' ? (
+          {servidor.estado === 'servidor-caido' ? (
             <AvisoServidor comprobando={servidor.comprobando} onReintentar={() => void servidor.comprobar()} />
           ) : null}
           {documento ? (
@@ -282,6 +283,10 @@ function Turno({ intercambio, onReintentar, ocupado }: {
             <Icono nombre="refresh" tamano={18} color={colores.accion} />
             <Text style={styles.reintentarTexto}>Reintentar</Text>
           </Pressable>
+        </View>
+      ) : intercambio.encolado ? (
+        <View style={{ marginTop: espaciado.m }}>
+          <SelloEstado tono="espera" texto="Pendiente de envío" />
         </View>
       ) : procesando ? (
         <EstadoProcesando etapa={intercambio.etapa} iniciadoEn={intercambio.iniciadoEn}

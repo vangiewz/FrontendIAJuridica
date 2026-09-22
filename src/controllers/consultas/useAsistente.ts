@@ -1,8 +1,12 @@
+let cacheIntercambios: Intercambio[] = [];
+
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Consulta } from '../../models/consultas';
 import { ItemDocumento } from '../../models/documentos';
 import { TemaAyuda } from '../../config/capacidadesAsistente';
-import { iniciarConsulta, obtenerConsulta } from '../../services/consultas';
+import { obtenerConsulta } from '../../services/consultas';
+import { encolar, esperarResultado, suscribirResultado } from '../../services/sync/cola';
+import { randomUUID } from 'expo-crypto';
 
 const INTERVALO_MS = 2000;
 /**
@@ -28,6 +32,8 @@ export interface Intercambio {
   /** Momento (Date.now) en que se envió; sirve para el reloj de espera. */
   iniciadoEn: number;
   duracionMs: number | null;
+  /** Quedo en la cola de salida: se envia sola cuando vuelva la conexion. */
+  encolado?: boolean;
   /**
    * Es una respuesta LOCAL de ayuda («¿qué podés hacer?»): no hubo consulta ni servidor. El valor es el tema
    * de ayuda; el hilo la dibuja con el catálogo de capacidades.
@@ -57,13 +63,21 @@ const esErrorDeRed = (e: any) =>
  */
 export function useAsistente(documentoInicial: DocumentoActivo | null = null) {
   const [documento, setDocumento] = useState<DocumentoActivo | null>(documentoInicial);
-  const [intercambios, setIntercambios] = useState<Intercambio[]>([]);
+  const [intercambios, setIntercambiosState] = useState<Intercambio[]>(cacheIntercambios);
+  const setIntercambios = useCallback((accion: React.SetStateAction<Intercambio[]>) => {
+    setIntercambiosState((prev) => {
+      const nuevo = typeof accion === 'function' ? (accion as (prev: Intercambio[]) => Intercambio[])(prev) : accion;
+      cacheIntercambios = nuevo;
+      return nuevo;
+    });
+  }, []);
   const [enviando, setEnviando] = useState(false);
   const seguimiento = useRef<ReturnType<typeof setTimeout> | null>(null);
   const vigente = useRef(0);
   const ocupado = useRef(false);
   const actuales = useRef<Intercambio[]>([]);
   actuales.current = intercambios;
+  const suscripcionesCola = useRef<Set<() => void>>(new Set());
 
   const detener = useCallback(() => {
     vigente.current += 1;
@@ -73,8 +87,23 @@ export function useAsistente(documentoInicial: DocumentoActivo | null = null) {
     }
   }, []);
 
-  // Al salir de la pantalla no debe quedar un sondeo vivo en segundo plano.
-  useEffect(() => detener, [detener]);
+  /**
+   * Deja de esperar a la cola. NO va dentro de `detener`: ese corre al mandar cada consulta
+   * nueva, y cada mensaje encolado tiene su propia espera. Si se dieran de baja ahi, mandar
+   * un segundo mensaje sin conexion dejaria al primero con el sello de pendiente para
+   * siempre, aunque despues se enviara bien.
+   */
+  const olvidarPendientes = useCallback(() => {
+    suscripcionesCola.current.forEach((darDeBaja) => darDeBaja());
+    suscripcionesCola.current.clear();
+  }, []);
+
+  // Al salir de la pantalla se cancela el sondeo activo para no gastar bateria en segundo plano.
+  // Pero NO se dan de baja las suscripciones de la cola: si el usuario vuelve tras reconectar
+  // el WiFi, la respuesta debe destaparse y mostrarse normalmente.
+  useEffect(() => () => {
+    detener();
+  }, [detener]);
 
   const actualizar = useCallback((id: string, cambio: Partial<Intercambio>) => {
     setIntercambios((previos) =>
@@ -121,7 +150,7 @@ export function useAsistente(documentoInicial: DocumentoActivo | null = null) {
           setEnviando(false);
         }
       };
-      seguimiento.current = setTimeout(paso, INTERVALO_MS);
+      void paso();
     },
     [actualizar],
   );
@@ -142,14 +171,40 @@ export function useAsistente(documentoInicial: DocumentoActivo | null = null) {
         reconectando: false, iniciadoEn: inicio, duracionMs: null,
       }]);
 
-      let id: string;
+      let id: string | null = null;
+      let opId: string | null = null;
       try {
-        id = await iniciarConsulta(limpio, documento?.id ?? null);
+        const payload = { texto: limpio, documento_id: documento?.id ?? null, client_op_id: randomUUID() };
+        const op = await encolar('consulta.iniciar', payload);
+        opId = op.id;
+        id = await esperarResultado(op.id, 4000);
       } catch (e: any) {
-        // Sin id no hay hilo que seguir: el error se muestra como un intercambio fallido.
         actualizar(localId, { error: e?.mensaje || 'No se pudo enviar la consulta' });
         ocupado.current = false;
         setEnviando(false);
+        return true;
+      }
+
+      if (!id) {
+        if (opId) {
+          actualizar(localId, { encolado: true, etapa: null });
+          ocupado.current = false;
+          setEnviando(false);
+          
+          let desuscribir = () => {};
+          desuscribir = suscribirResultado(opId, (idReal: string) => {
+            suscripcionesCola.current.delete(desuscribir);
+            const i = actuales.current.find(ex => ex.id === localId);
+            if (i && !i.error) {
+              actualizar(localId, { encolado: false, consultaId: idReal, etapa: 'Analizando tu consulta...' });
+              ocupado.current = true;
+              setEnviando(true);
+              const turnoActual = vigente.current;
+              seguir(idReal, localId, turnoActual, inicio);
+            }
+          });
+          suscripcionesCola.current.add(desuscribir);
+        }
         return true;
       }
 
@@ -200,10 +255,14 @@ export function useAsistente(documentoInicial: DocumentoActivo | null = null) {
 
   const limpiarConversacion = useCallback(() => {
     detener();
+    // Se borra el hilo entero, asi que ya no hay mensaje que destapar cuando la cola salga.
+    // La consulta igual se envia y queda en el historial.
+    olvidarPendientes();
+    cacheIntercambios = [];
     setIntercambios([]);
     ocupado.current = false;
     setEnviando(false);
-  }, [detener]);
+  }, [detener, olvidarPendientes]);
 
   return {
     documento, elegirDocumento,

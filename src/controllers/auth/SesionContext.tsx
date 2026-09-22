@@ -1,8 +1,9 @@
 import React, { createContext, useState, useEffect, ReactNode } from 'react';
 import { Usuario, Tokens, RegistroPayload } from '../../models/auth';
-import { leerSesion, borrarSesion, guardarSesion } from '../../services/almacenamiento';
-import { peticion } from '../../services/api';
+import { leerSesion, borrarSesion, guardarSesion, leerUsuario, guardarUsuario, borrarUsuario } from '../../services/almacenamiento';
+import { peticion, esErrorDeTransporte } from '../../services/api';
 import { useRouter, useSegments } from 'expo-router';
+import { reanudar } from '../../services/sync/despachador';
 
 interface SesionContextValue {
   usuario: Usuario | null;
@@ -43,17 +44,21 @@ export function SesionProvider({ children }: { children: ReactNode }) {
         // Con tiempo máximo: sin él, un servidor inalcanzable en la red local deja la app
         // en blanco hasta que el sistema corta la conexión (minutos en Android).
         const userData = await peticion<Usuario>('/api/v1/auth/yo', { timeoutMs: 12000 });
+        await guardarUsuario(userData);
         setUsuario(userData);
       }
     } catch (e) {
-      // Sin conexión no significa sesión inválida: los tokens se conservan. Solo se
-      // descartan cuando el servidor respondió y los rechazó.
-      const codigo = (e as { codigo?: string } | null)?.codigo;
-      if (codigo !== 'SIN_CONEXION' && codigo !== 'TIEMPO_AGOTADO') await borrarSesion();
+      if (esErrorDeTransporte(e)) {
+        setUsuario(await leerUsuario());
+      } else {
+        await borrarSesion();
+        await borrarUsuario();
+      }
     } finally {
       setCargando(false);
     }
   };
+
 
   const iniciarSesion = async (email: string, password: string) => {
     const tokens = await peticion<Tokens>('/api/v1/auth/login', {
@@ -62,7 +67,9 @@ export function SesionProvider({ children }: { children: ReactNode }) {
     });
     
     await guardarSesion(tokens);
+    reanudar();
     const userData = await peticion<Usuario>('/api/v1/auth/yo');
+    await guardarUsuario(userData);
     setUsuario(userData);
   };
 
@@ -76,6 +83,7 @@ export function SesionProvider({ children }: { children: ReactNode }) {
 
   const cerrarSesion = async () => {
     await borrarSesion();
+    await borrarUsuario();
     setUsuario(null);
   };
 

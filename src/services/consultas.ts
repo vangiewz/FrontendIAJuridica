@@ -21,6 +21,7 @@ const TIEMPO_AVANCE_MS = 20000;
 export async function iniciarConsulta(
   texto: string,
   documentoId?: string | null,
+  clientOpId?: string,
 ): Promise<string> {
   const data = await peticion<{ id: string }>('/api/v1/consultas/iniciar', {
     method: 'POST',
@@ -28,6 +29,7 @@ export async function iniciarConsulta(
     // usuario antes de usarlo, asi que mandarlo no es una via de confianza.
     body: JSON.stringify({ texto, documento_id: documentoId ?? null }),
     timeoutMs: TIEMPO_INICIAR_MS,
+    clientOpId,
   });
   return data.id;
 }

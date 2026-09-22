@@ -9,12 +9,13 @@ import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { createRequire } from 'node:module';
-import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const raiz = resolve(fileURLToPath(new URL('..', import.meta.url)));
-const salida = mkdtempSync(join(tmpdir(), 'pruebas-logica-'));
+// Dentro del repo, no en el tmp del sistema: los modulos compilados hacen `require` de
+// paquetes del proyecto y desde fuera no resolverian node_modules. Lo ignora .gitignore.
+const salida = mkdtempSync(join(raiz, '.test-out-'));
 const tsc = join(raiz, 'node_modules', 'typescript', 'bin', 'tsc');
 
 const modulos = [
@@ -24,6 +25,12 @@ const modulos = [
   'src/components/consultas/etapas.ts',
   'src/components/consultas/analizarTexto.ts',
   'src/components/avatar/estados.ts',
+  'src/components/shared/textoConexion.ts',
+  'src/services/persistencia/claves.ts',
+  'src/services/sync/backoff.ts',
+  'src/services/sync/clasificarError.ts',
+  'src/models/consultas/esquemas.ts',
+  'src/models/normativa/corpus.ts',
   'src/services/llamada/intencion.ts',
   'src/services/llamada/resumenVoz.ts',
   'src/services/escaner/escanerPuro.ts',
@@ -55,6 +62,7 @@ const { elegirIdioma, clasificarError, mensajeDescarga, MENSAJES_DICTADO } = car
 const { pasoDeEtapa } = cargar('./components/consultas/etapas');
 const { analizarTexto } = cargar('./components/consultas/analizarTexto');
 const { resolverEstadoAvatar, estadoAvatarDelPanel, ETIQUETA_AVATAR, TEXTO_ESTADO } = cargar('./components/avatar/estados');
+const { textoConexion } = cargar('./components/shared/textoConexion');
 const { detectarIntencionLlamada, aPlano } = cargar('./services/llamada/intencion');
 const { detectarAyudaEnTexto } = cargar('./services/llamada/intencionAyuda');
 const {
@@ -85,24 +93,22 @@ try {
   console.log('--- URL del backend ---');
   ok('la variable explícita gana y pierde la barra final', () =>
     assert.equal(resolverBaseUrl({ variable: 'http://10.0.0.5:9000/', hostUri: '192.168.1.23:8081', plataforma: 'android' }), 'http://10.0.0.5:9000'));
-  ok('false selecciona cloud y true selecciona local', () => {
-    assert.equal(resolverBaseUrl({ usarLocal: 'false', urlLocal: 'http://127.0.0.1:8000', urlCloud: 'https://cloud.test/', plataforma: 'android' }), 'https://cloud.test');
-    assert.equal(resolverBaseUrl({ usarLocal: 'true', urlLocal: 'http://127.0.0.1:8000/', urlCloud: 'https://cloud.test', plataforma: 'android' }), 'http://127.0.0.1:8000');
-  });
-  ok('false no se interpreta como true por ser texto', () =>
-    assert.equal(resolverBaseUrl({ usarLocal: 'FALSE', urlLocal: 'http://local.test', urlCloud: 'https://cloud.test', plataforma: 'android' }), 'https://cloud.test'));
-  ok('celular sin variable: host de Metro y puerto 8000', () =>
-    assert.equal(resolverBaseUrl({ variable: undefined, hostUri: '192.168.1.23:8081', plataforma: 'android' }), 'http://192.168.1.23:8000'));
+  ok('la variable con la URL de produccion tambien manda', () =>
+    assert.equal(resolverBaseUrl({ variable: 'https://ia-juridica-api.azurewebsites.net', hostUri: '192.168.1.23:8081', plataforma: 'android' }), 'https://ia-juridica-api.azurewebsites.net'));
+  ok('sin variable, el celular usa el host de Metro y el puerto 8000', () =>
+    assert.equal(resolverBaseUrl({ hostUri: '192.168.1.23:8081', plataforma: 'android' }), 'http://192.168.1.23:8000'));
   ok('development build (hostUri con esquema) también sirve', () =>
     assert.equal(resolverBaseUrl({ variable: '', hostUri: 'http://192.168.1.23:8081/x', plataforma: 'android' }), 'http://192.168.1.23:8000'));
   ok('variable vacía o con espacios cuenta como no definida', () =>
     assert.equal(resolverBaseUrl({ variable: '   ', hostUri: '192.168.1.23:8081', plataforma: 'ios' }), 'http://192.168.1.23:8000'));
-  ok('web usa loopback aunque haya hostUri', () =>
-    assert.equal(resolverBaseUrl({ variable: '', hostUri: '192.168.1.23:8081', plataforma: 'web' }), 'http://127.0.0.1:8000'));
-  ok('el túnel de Expo NO se toma como backend', () =>
-    assert.equal(resolverBaseUrl({ variable: '', hostUri: 'abc-anonymous-8081.exp.direct:80', plataforma: 'android' }), 'http://127.0.0.1:8000'));
-  ok('sin hostUri (build de producción) cae a loopback', () =>
-    assert.equal(resolverBaseUrl({ variable: '', hostUri: null, plataforma: 'android' }), 'http://127.0.0.1:8000'));
+  ok('en web con Metro tambien vale el host: es la misma PC', () =>
+    assert.equal(resolverBaseUrl({ hostUri: 'localhost:8081', plataforma: 'web' }), 'http://localhost:8000'));
+  ok('el túnel de Expo NO se toma como backend: cae a produccion', () =>
+    assert.equal(resolverBaseUrl({ hostUri: 'abc-anonymous-8081.exp.direct:80', plataforma: 'android' }), 'https://ia-juridica-api.azurewebsites.net'));
+  ok('sin variable y sin Metro (APK repartido o Vercel) va a produccion', () => {
+    assert.equal(resolverBaseUrl({ hostUri: null, plataforma: 'android' }), 'https://ia-juridica-api.azurewebsites.net');
+    assert.equal(resolverBaseUrl({ plataforma: 'web' }), 'https://ia-juridica-api.azurewebsites.net');
+  });
   ok('describirServidor no expone esquema ni ruta', () =>
     assert.equal(describirServidor('http://192.168.1.23:8000/api'), '192.168.1.23:8000'));
 
@@ -232,6 +238,97 @@ try {
     assert.equal(TEXTO_ESTADO.listening, 'Te escucho…');
     assert.equal(TEXTO_ESTADO.thinking, 'Analizando tu consulta…');
     assert.ok(!/%|[0-9]/.test(TEXTO_ESTADO.thinking));
+  });
+
+  console.log('--- Cache y persistencia ---');
+  const { claves } = cargar('./services/persistencia/claves');
+  ok('las claves de query son estables y separan por dominio', () => {
+    assert.deepEqual(claves.historial(), ['consultas', 'historial']);
+    assert.deepEqual(claves.consulta('abc'), ['consultas', 'detalle', 'abc']);
+    assert.deepEqual(claves.articulo('CC', 42), ['normativa', 'articulo', 'CC', 42]);
+    assert.deepEqual(claves.indice('CPC'), ['normativa', 'indice', 'CPC']);
+  });
+
+  // El buster es lo unico que protege de rehidratar objetos con una forma vieja tras un
+  // cambio de tipos. Se ejercita el comportamiento, no la existencia de la constante.
+  const { persistQueryClientRestore } = await import('@tanstack/react-query-persist-client');
+  const { QueryClient } = await import('@tanstack/react-query');
+  const restaurarCon = async (buster) => {
+    let descartada = false;
+    await persistQueryClientRestore({
+      queryClient: new QueryClient(),
+      persister: {
+        restoreClient: async () => ({
+          buster: 'v1', timestamp: Date.now(),
+          clientState: { mutations: [], queries: [] },
+        }),
+        removeClient: async () => { descartada = true; },
+        persistClient: async () => {},
+      },
+      buster,
+    });
+    return descartada;
+  };
+  const conBusterDistinto = await restaurarCon('v2');
+  ok('una cache guardada con otra version se descarta', () => assert.equal(conBusterDistinto, true));
+  const conMismoBuster = await restaurarCon('v1');
+  ok('una cache de la version actual se conserva', () => assert.equal(conMismoBuster, false));
+
+  console.log('--- Sincronizacion ---');
+  const { proximoIntento } = cargar('./services/sync/backoff');
+  ok('backoff progresa y respeta el techo', () => {
+    const b0 = proximoIntento(0, 1000, 0.5);
+    const b1 = proximoIntento(1, 1000, 0.5);
+    const b10 = proximoIntento(10, 1000, 0.5);
+    assert.ok(b1 > b0, 'Debe aumentar con los intentos');
+    assert.equal(b10, 1000 + 1_800_000, 'Debe respetar el techo de 30 minutos sin jitter si rnd es 0.5');
+  });
+
+  const { clasificar } = cargar('./services/sync/clasificarError');
+  ok('clasificarError asigna el desenlace correcto', () => {
+    assert.equal(clasificar({ codigo: 'SIN_CONEXION' }).desenlace, 'reintentar');
+    assert.equal(clasificar({ estado: 500 }).desenlace, 'reintentar');
+    assert.equal(clasificar({ estado: 429 }).desenlace, 'reintentar');
+    assert.equal(clasificar({ estado: 200 }).desenlace, 'exito');
+    assert.equal(clasificar({ estado: 409 }).desenlace, 'exito');
+    assert.equal(clasificar({ estado: 400 }).desenlace, 'descartar');
+    assert.equal(clasificar({ estado: 422 }).desenlace, 'descartar');
+    assert.equal(clasificar({ estado: 401 }).desenlace, 'pausar');
+    assert.equal(clasificar({ estado: 404 }).desenlace, 'descartar');
+  });
+
+  const { EsquemaConsultaIniciar } = cargar('./models/consultas/esquemas');
+  ok('EsquemaConsultaIniciar valida payload, texto corto, largo y nulls', () => {
+    assert.ok(EsquemaConsultaIniciar.safeParse({ texto: 'Hola mundo', documento_id: null, client_op_id: '123e4567-e89b-12d3-a456-426614174000' }).success);
+    assert.ok(!EsquemaConsultaIniciar.safeParse({ texto: 'Ho', documento_id: null, client_op_id: '123e4567-e89b-12d3-a456-426614174000' }).success);
+    assert.ok(!EsquemaConsultaIniciar.safeParse({ texto: 'H'.repeat(2001), documento_id: null, client_op_id: '123e4567-e89b-12d3-a456-426614174000' }).success);
+  });
+
+  console.log('--- Corpus Offline ---');
+  const { armarDetalleLocal, vecinosPuros } = cargar('./models/normativa/corpus');
+  ok('vecinos en el medio', () => {
+    assert.deepEqual(vecinosPuros(5, [1, 5, 10]), { anterior: 1, siguiente: 10 });
+  });
+  ok('vecinos en los bordes', () => {
+    assert.deepEqual(vecinosPuros(1, [1, 5, 10]), { anterior: null, siguiente: 5 });
+    assert.deepEqual(vecinosPuros(10, [1, 5, 10]), { anterior: 5, siguiente: null });
+  });
+  ok('vecinos si no existe', () => {
+    assert.deepEqual(vecinosPuros(2, [1, 5, 10]), { anterior: null, siguiente: null });
+  });
+  ok('armarDetalleLocal conserva los campos', () => {
+    const art = {
+      id: 'abc', codigo: 'CC', articulo: 'Art. 1', numero_articulo: 1, epigrafe: 'Comienzo',
+      texto: 'Contenido', area_juridica: null,
+      ubicacion: { libro: null, parte: null, titulo: null, capitulo: null, seccion: null },
+      estado_vigencia: 'vigente', nota_vigencia: null, fuente_nombre: 'Ley 1', fuente_url: 'http',
+      version: 1
+    };
+    const det = armarDetalleLocal(art, null, 2);
+    assert.equal(det.anterior, null);
+    assert.equal(det.siguiente, 2);
+    assert.equal(det.estado_vigencia, 'vigente');
+    assert.equal(det.fuente_url, 'http');
   });
 
   console.log('--- Llamada: intención de lo que se dice ---');
@@ -1049,6 +1146,23 @@ try {
     assert.deepEqual(P.buscarRecordatorios(lista, 'cancelá el recordatorio').map((r) => r.id), ['a', 'b', 'c']); // sin pista: el que llama pide elegir
     assert.deepEqual(P.buscarRecordatorios(lista, 'cancelá el recordatorio de la audiencia'), []);
     assert.deepEqual(P.buscarRecordatorios([...lista, REC({ id: 'x', estado: 'pasado', titulo: 'contrato viejo' })], 'contrato').map((r) => r.id), ['a']);
+  });
+
+  console.log('--- textoConexion ---');
+  ok('situaciones sin red', () => {
+    assert.deepEqual(textoConexion({ tipo: 'sin-red', pendientes: 0 }), { texto: 'Sin conexión · seguís viendo lo que ya tenés guardado' });
+    assert.deepEqual(textoConexion({ tipo: 'sin-red', pendientes: 1 }), { texto: 'Sin conexión · 1 consulta se enviará al volver la red' });
+    assert.deepEqual(textoConexion({ tipo: 'sin-red', pendientes: 3 }), { texto: 'Sin conexión · 3 consultas se enviarán al volver la red' });
+  });
+  ok('situaciones enviando y enviado', () => {
+    assert.deepEqual(textoConexion({ tipo: 'enviando', pendientes: 2 }), { texto: 'Enviando 2…' });
+    assert.deepEqual(textoConexion({ tipo: 'enviado' }), { texto: 'Listo · se envió todo' });
+  });
+  ok('situaciones con fallos y aviso de sesion', () => {
+    assert.deepEqual(textoConexion({ tipo: 'fallo', pendientes: 2 }), { texto: 'No se pudo enviar 2', accion: 'Reintentar' });
+    assert.deepEqual(textoConexion({ tipo: 'sesion', pendientes: 4 }), { texto: 'Tenés 4 sin enviar', accion: 'Iniciar sesión' });
+    assert.deepEqual(textoConexion({ tipo: 'actualizacion' }), { texto: 'Hay una versión nueva', accion: 'Actualizar' });
+    assert.deepEqual(textoConexion({ tipo: 'oculta' }), { texto: '' });
   });
 
   console.log('--- Ayuda: el asistente explica lo que puede hacer ---');

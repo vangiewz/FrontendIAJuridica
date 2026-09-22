@@ -12,6 +12,7 @@ export interface OpcionesPeticion extends RequestInit {
    * colgada indefinidamente en el celular.
    */
   timeoutMs?: number;
+  clientOpId?: string;
 }
 
 /**
@@ -75,7 +76,19 @@ async function enviar(ruta: string, opciones: OpcionesPeticion): Promise<Respons
     headers.set('Content-Type', 'application/json');
   }
 
-  const { params: _params, timeoutMs, ...init } = opciones;
+  const { params: _params, timeoutMs, clientOpId, ...init } = opciones;
+
+  if (clientOpId) {
+    headers.set('X-Client-Op-Id', clientOpId);
+    if (init.body && typeof init.body === 'string' && headers.get('Content-Type')?.includes('application/json')) {
+      try {
+        const bodyObj = JSON.parse(init.body);
+        bodyObj.client_op_id = clientOpId;
+        init.body = JSON.stringify(bodyObj);
+      } catch (e) {}
+    }
+  }
+
   let res = await pedir(url.toString(), { ...init, headers }, timeoutMs);
 
   if (res.status === 401 && tokens?.refresh_token && !ruta.includes('/refresh')) {
@@ -158,3 +171,5 @@ export async function peticionBinaria(
   const nombre = crudo.replace(/[\\/:*?"<>|]/g, '_').replace(/\.\./g, '_');
   return { blob: await res.blob(), nombre };
 }
+
+export { esErrorDeTransporte } from './erroresTransporte';
